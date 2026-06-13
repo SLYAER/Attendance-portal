@@ -1,0 +1,23 @@
+{
+  "entities": {
+    "AttendanceRecord": {
+      "title": "Attendance Record",
+      "description": "A single clock-in/clock-out record for an employee.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "date": { "type": "string", "description": "YYYY-MM-DD for easy daily querying" },
+        "clockIn": { "type": "string", "format": "date-time" },
+        "clockOut": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "employeeName", "date", "clockIn"]
+    }
+  },
+  "firestore": {
+    "attendance/{recordId}": {
+      "schema": { "$ref": "#/entities/AttendanceRecord" },
+      "description": "Global collection for attendance records."
+    }
+  }
+}

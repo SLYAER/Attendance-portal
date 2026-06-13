@@ -1,0 +1,6 @@
+{
+  "name": "Shop Attendance",
+  "description": "An attendance tracking portal for shop employees with clock-in and clock-out functionality.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

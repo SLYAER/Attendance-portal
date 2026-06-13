@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'loveranger900@gmail.com';
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidAttendance(data) {
+      let isUserIdValid = data.userId is string && data.userId.size() <= 128 && data.userId == request.auth.uid;
+      let isEmployeeNameValid = data.employeeName is string && data.employeeName.size() > 0 && data.employeeName.size() <= 100;
+      let isDateValid = data.date is string && data.date.size() == 10;
+      let isClockInValid = data.clockIn is string && data.clockIn.size() <= 50;
+      
+      let isClockOutValid = (!('clockOut' in data.keys()) || (data.clockOut is string && data.clockOut.size() <= 50));
+      
+      let exactKeysNoOut = !('clockOut' in data.keys()) && data.keys().hasAll(['userId', 'employeeName', 'date', 'clockIn']) && data.keys().size() == 4;
+      let exactKeysWithOut = ('clockOut' in data.keys()) && data.keys().hasAll(['userId', 'employeeName', 'date', 'clockIn', 'clockOut']) && data.keys().size() == 5;
+      
+      return isUserIdValid && isEmployeeNameValid && isDateValid && isClockInValid && isClockOutValid && (exactKeysNoOut || exactKeysWithOut);
+    }
+
+    match /attendance/{recordId} {
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isSignedIn() && isValidId(recordId) && isValidAttendance(incoming());
+      
+      allow update: if isSignedIn() && isValidId(recordId) && 
+        (
+          isAdmin() ||
+          (
+            existing().userId == request.auth.uid && 
+            isValidAttendance(incoming()) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['clockOut']) &&
+            incoming().userId == existing().userId
+          )
+        );
+      
+      allow delete: if isAdmin();
+    }
+  }
+}
