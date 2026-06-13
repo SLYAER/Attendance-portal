@@ -152,7 +152,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     return R * c; // in metres
   };
 
-  const verifyLocation = (): Promise<boolean> => {
+  const verifyLocation = (actionType: string): Promise<boolean> => {
     return new Promise((resolve) => {
       setLocationError('');
       if (!shopLocation) {
@@ -167,7 +167,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
       }
 
       setIsVerifyingLocation(true);
-      navigator.geolocation.getCurrentPosition((pos) => {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
         setIsVerifyingLocation(false);
         const dist = calculateDistance(
           pos.coords.latitude, pos.coords.longitude,
@@ -179,6 +179,23 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
           resolve(true);
         } else {
           setLocationError(`You are too far from the shop (${Math.round(dist)} meters away). Please go to the shop to mark attendance.`);
+          
+          if (activeUserId) {
+            try {
+              await setDoc(doc(collection(db, 'failed_attempts')), {
+                userId: activeUserId,
+                employeeName: userData?.name || 'Employee',
+                action: actionType,
+                distanceMeters: Math.round(dist),
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                timestamp: new Date().toISOString()
+              });
+            } catch (e) {
+              console.error("Failed to log attempt", e);
+            }
+          }
+          
           resolve(false);
         }
       }, (err) => {
@@ -195,7 +212,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
 
   const handleClockIn = async () => {
     if (!activeUserId) return;
-    const isAtShop = await verifyLocation();
+    const isAtShop = await verifyLocation('Clock In');
     if (!isAtShop) return;
 
     const now = new Date();
@@ -221,7 +238,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
 
   const handleClockOut = async () => {
     if (!todayRecord || !todayRecord.id) return;
-    const isAtShop = await verifyLocation();
+    const isAtShop = await verifyLocation('Clock Out');
     if (!isAtShop) return;
 
     const now = new Date();

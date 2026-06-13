@@ -14,6 +14,7 @@ interface AdminPanelProps {
 export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failedAttempts, setFailedAttempts] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [editClockIn, setEditClockIn] = useState('');
@@ -25,7 +26,20 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   useEffect(() => {
     fetchRecords();
     fetchShopLocation();
+    fetchFailedAttempts();
   }, []);
+
+  const fetchFailedAttempts = async () => {
+    try {
+      const q = query(collection(db, 'failed_attempts'), orderBy('timestamp', 'desc'), limit(50));
+      const snapshot = await getDocs(q);
+      const data: any[] = [];
+      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      setFailedAttempts(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchShopLocation = async () => {
     try {
@@ -247,6 +261,37 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
             )}
           </div>
         </div>
+
+        {/* Failed Attempts Log */}
+        {failedAttempts.length > 0 && (
+          <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#2D3436] shadow-lg">
+            <h2 className="text-2xl font-black uppercase tracking-wider text-[#FF6B6B] mb-6 flex items-center gap-3">
+              ⚠️ Distant Attempts Log
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-100">
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Time</th>
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Employee</th>
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Action</th>
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Distance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100/50">
+                  {failedAttempts.map(att => (
+                    <tr key={att.id}>
+                      <td className="py-3 text-sm font-bold text-[#2D3436]">{format(new Date(att.timestamp), 'PP p')}</td>
+                      <td className="py-3 text-sm font-bold text-[#2D3436]">{att.employeeName}</td>
+                      <td className="py-3 text-sm font-bold text-[#2D3436]">{att.action}</td>
+                      <td className="py-3 text-sm font-bold text-[#FF6B6B]">{att.distanceMeters} m away</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-[40px] p-8 md:p-10 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg min-h-[500px]">
           {loading ? (

@@ -172,16 +172,7 @@ export default function Login({ onLogin }: { onLogin?: (profile: any) => void })
         </form>
       </motion.div>
 
-      {/* Admin Login Button */}
-      <div className="mt-8">
-         <button
-            onClick={handleAdminLogin}
-            className="flex items-center gap-2 text-sm font-bold text-[#A0AEC0] hover:text-[#2D3436] transition-colors bg-white px-4 py-2 border-2 border-transparent hover:border-gray-200 rounded-xl"
-          >
-            <ShieldAlert className="w-4 h-4" />
-            Admin / Owner Login
-          </button>
-      </div>
+      {/* Removed Google Admin Login since admins use phone numbers */}
     </div>
   );
 }

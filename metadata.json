@@ -1,6 +1,6 @@
 {
-  "name": "Shop Attendance",
-  "description": "An attendance tracking portal for shop employees with clock-in and clock-out functionality.",
+  "name": "MEHTA SALES ATTENDANCE",
+  "description": "An attendance tracking portal for shop employees.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
