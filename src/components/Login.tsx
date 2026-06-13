@@ -5,8 +5,8 @@ import { auth, db } from '../lib/firebase';
 import { doc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { motion } from 'motion/react';
 
-export default function Login({ onLogin }: { onLogin?: (profile: any) => void }) {
-  const [phoneNumber, setPhoneNumber] = useState('');
+export default function Login({ onLogin, defaultPhone }: { onLogin?: (profile: any) => void, defaultPhone?: string | null }) {
+  const [phoneNumber, setPhoneNumber] = useState(defaultPhone ? defaultPhone.replace('+91', '') : '');
   const [name, setName] = useState('');
   const [pictureBase64, setPictureBase64] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -143,9 +143,13 @@ export default function Login({ onLogin }: { onLogin?: (profile: any) => void })
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 required
-                className="w-full bg-[#F0FFF4] border-4 border-[#4ECDC4] rounded-r-2xl p-4 text-xl font-bold text-[#2D3436] outline-none focus:border-[#26C6DA] transition-colors"
+                readOnly={!!defaultPhone}
+                className={`w-full border-4 border-[#4ECDC4] rounded-r-2xl p-4 text-xl font-bold text-[#2D3436] outline-none transition-colors ${defaultPhone ? 'bg-gray-100 cursor-not-allowed' : 'bg-[#F0FFF4] focus:border-[#26C6DA]'}`}
               />
             </div>
+            {defaultPhone && (
+              <p className="text-xs text-[#FF6B6B] mt-2 font-bold">This device is locked to this number.</p>
+            )}
           </div>
 
           <div className="mb-6">
