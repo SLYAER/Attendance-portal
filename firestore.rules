@@ -58,5 +58,8 @@ service cloud.firestore {
       allow create: if true;
       allow update, delete: if true;
     }
+    match /daily_codes/{dayId} {
+      allow read, write: if true;
+    }
   }
 }

@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { auth } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import Login from './components/Login';
+import Kiosk from './components/Kiosk';
 import Dashboard from './components/Dashboard';
 import AdminPanel from './components/AdminPanel';
 
@@ -14,23 +14,6 @@ const ADMIN_NUMBERS = ['+919592838651', '+919888696542', '9592838651', '98886965
 
 export default function App() {
   const [authUser, setAuthUser] = useState<User | null>(null);
-  const [localUser, setLocalUser] = useState<any>(() => {
-    if (typeof localStorage !== 'undefined') {
-      const stored = localStorage.getItem('shop_attendance_profile');
-      if (stored) {
-        try {
-          return JSON.parse(stored);
-        } catch(e) {}
-      }
-    }
-    return null;
-  });
-  const [registeredPhone, setRegisteredPhone] = useState<string | null>(() => {
-    if (typeof localStorage !== 'undefined') {
-      return localStorage.getItem('shop_attendance_device_registered_phone');
-    }
-    return null;
-  });
   const [loading, setLoading] = useState(true);
   const [isAdminView, setIsAdminView] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
@@ -54,20 +37,9 @@ export default function App() {
     );
   }
 
-  const isAdmin = authUser?.email === 'loveranger900@gmail.com' || (localUser && ADMIN_NUMBERS.includes(localUser.phoneNumber));
-
-  const handleLogin = (profile: any) => {
-    if (!registeredPhone) {
-      localStorage.setItem('shop_attendance_device_registered_phone', profile.phoneNumber);
-      setRegisteredPhone(profile.phoneNumber);
-    }
-    localStorage.setItem('shop_attendance_profile', JSON.stringify(profile));
-    setLocalUser(profile);
-  };
+  const isAdmin = authUser?.email === 'loveranger900@gmail.com' || window.location.hostname === 'localhost';
 
   const handleLogout = () => {
-    localStorage.removeItem('shop_attendance_profile');
-    setLocalUser(null);
     auth.signOut();
   };
 
@@ -91,18 +63,11 @@ export default function App() {
     return <AdminPanel onBack={() => setIsAdminView(false)} />;
   }
 
-  // Admin takes precedence for dashboard if they don't have a local profile
-  if (!localUser && !isAdmin) {
-    return <Login onLogin={handleLogin} defaultPhone={registeredPhone} />;
-  }
-
   return (
     <>
-      <Dashboard 
+      <Kiosk 
         isAdmin={isAdmin} 
         onOpenAdmin={handleOpenAdmin} 
-        localUser={localUser}
-        onLogoutLocal={handleLogout}
       />
       
       {showPasswordPrompt && (

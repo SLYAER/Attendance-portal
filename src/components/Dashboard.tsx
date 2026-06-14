@@ -6,6 +6,7 @@ import { handleFirestoreError } from '../lib/errorUtils';
 import { LogOut, Clock, CalendarDays, CheckCircle2, ShieldAlert, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'motion/react';
+import CameraModal from './CameraModal';
 
 interface DashboardProps {
   isAdmin: boolean;
@@ -23,6 +24,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
   const [locationError, setLocationError] = useState('');
   const [isVerifyingLocation, setIsVerifyingLocation] = useState(false);
   const [userData, setUserData] = useState<any>(null);
+  const [cameraMode, setCameraMode] = useState<'in' | 'out' | null>(null);
 
   const activeUserId = localUser?.uid || auth.currentUser?.uid;
   
@@ -210,7 +212,8 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     });
   };
 
-  const handleClockIn = async () => {
+  const processClockIn = async (photoBase64: string) => {
+    setCameraMode(null);
     if (!activeUserId) return;
     const isAtShop = await verifyLocation('Clock In');
     if (!isAtShop) return;
@@ -226,7 +229,8 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
       userId: activeUserId,
       employeeName: userData?.name || 'Employee',
       date: dateStr,
-      clockIn: isoStr
+      clockIn: isoStr,
+      clockInPhoto: photoBase64
     };
 
     try {
@@ -236,24 +240,46 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     }
   };
 
-  const handleClockOut = async () => {
+  const processClockOut = async (photoBase64: string | undefined, skipLocation = false) => {
+    setCameraMode(null);
     if (!todayRecord || !todayRecord.id) return;
-    const isAtShop = await verifyLocation('Clock Out');
-    if (!isAtShop) return;
+    
+    if (!skipLocation) {
+      const isAtShop = await verifyLocation('Clock Out');
+      if (!isAtShop) return;
+    }
 
     const now = new Date();
     const isoStr = now.toISOString();
 
+    const updateData: any = { clockOut: isoStr };
+    if (photoBase64) {
+      updateData.clockOutPhoto = photoBase64;
+    }
+
     try {
-      await updateDoc(doc(db, 'attendance', todayRecord.id), {
-        clockOut: isoStr
-      });
+      await updateDoc(doc(db, 'attendance', todayRecord.id), updateData);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `attendance/${todayRecord.id}`);
     }
   };
 
-  const handleSignOut = () => {
+  const handleCapture = (photo: string) => {
+    if (cameraMode === 'in') {
+      processClockIn(photo);
+    } else if (cameraMode === 'out') {
+      processClockOut(photo);
+    }
+  };
+
+  const isClockedIn = !!todayRecord;
+  const isClockedOut = isClockedIn && !!todayRecord.clockOut;
+
+  const handleSignOut = async () => {
+    if (isClockedIn && !isClockedOut) {
+      await processClockOut(undefined, true);
+    }
+    
     if (localUser) {
       onLogoutLocal();
     } else {
@@ -262,11 +288,8 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Loading your data...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-[#FFFCF0] text-[#A0AEC0] font-black tracking-widest text-xl uppercase">Loading...</div>;
   }
-
-  const isClockedIn = !!todayRecord;
-  const isClockedOut = isClockedIn && !!todayRecord.clockOut;
 
   return (
     <div className="min-h-screen bg-[#FFFCF0] text-[#2D3436] font-sans flex flex-col overflow-x-hidden">
@@ -291,15 +314,17 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
           {userData?.phoneNumber && <span className="text-[#A0AEC0] font-bold text-[10px] sm:text-xs">{userData.phoneNumber}</span>}
           <div className="flex items-center gap-4 mt-1">
             {isAdmin && (
-              <button onClick={onOpenAdmin} className="flex items-center gap-1 text-sm font-bold text-blue-500 hover:text-blue-600 transition-colors">
-                <ShieldAlert className="w-4 h-4" />
-                ADMIN PANEL
-              </button>
+              <>
+                <button onClick={onOpenAdmin} className="flex items-center gap-1 text-sm font-bold text-blue-500 hover:text-blue-600 transition-colors">
+                  <ShieldAlert className="w-4 h-4" />
+                  ADMIN PANEL
+                </button>
+                <button onClick={handleSignOut} className="flex items-center gap-1 text-sm font-bold text-[#FF6B6B] hover:text-[#EE5253] transition-colors">
+                  <LogOut className="w-4 h-4" />
+                  SIGN OUT
+                </button>
+              </>
             )}
-            <button onClick={handleSignOut} className="flex items-center gap-1 text-sm font-bold text-[#FF6B6B] hover:text-[#EE5253] transition-colors">
-              <LogOut className="w-4 h-4" />
-              SIGN OUT
-            </button>
           </div>
         </div>
       </header>
@@ -335,14 +360,14 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
               )}
               {!isClockedIn ? (
                 <button
-                  onClick={handleClockIn}
+                  onClick={() => setCameraMode('in')}
                   className="w-full py-6 sm:py-8 bg-[#FF6B6B] hover:bg-[#FF5252] text-white rounded-[32px] text-2xl sm:text-3xl font-black shadow-[0_8px_0_0_#EE5253] active:translate-y-1 active:shadow-none transition-all"
                 >
                   CLOCK IN NOW
                 </button>
               ) : !isClockedOut ? (
                 <button
-                  onClick={handleClockOut}
+                  onClick={() => setCameraMode('out')}
                   className="w-full py-6 sm:py-8 bg-[#F9D423] hover:bg-[#F1C40F] text-[#8B6E00] rounded-[32px] text-2xl sm:text-3xl font-black shadow-[0_8px_0_0_#D4AC0D] active:translate-y-1 active:shadow-none transition-all"
                 >
                   CLOCK OUT
@@ -436,6 +461,14 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
           </div>
         </div>
       </main>
+
+      {cameraMode && (
+        <CameraModal 
+          title={`Take Photo for ${cameraMode === 'in' ? 'Clock In' : 'Clock Out'}`}
+          onCapture={handleCapture}
+          onClose={() => setCameraMode(null)}
+        />
+      )}
     </div>
   );
 }

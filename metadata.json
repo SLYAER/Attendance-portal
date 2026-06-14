@@ -1,6 +1,6 @@
 {
   "name": "MEHTA SALES ATTENDANCE",
   "description": "An attendance tracking portal for shop employees.",
-  "requestFramePermissions": ["geolocation"],
+  "requestFramePermissions": ["geolocation", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

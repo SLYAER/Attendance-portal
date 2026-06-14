@@ -5,6 +5,8 @@ export interface AttendanceRecord {
   date: string;
   clockIn: string;
   clockOut?: string;
+  clockInPhoto?: string;
+  clockOutPhoto?: string;
 }
 
 export enum OperationType {

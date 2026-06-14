@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, query, orderBy, limit, getDocs, doc, updateDoc, deleteDoc, deleteField } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, updateDoc, deleteDoc, deleteField, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AttendanceRecord } from '../types';
-import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { getDoc, setDoc } from 'firebase/firestore';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -13,6 +12,7 @@ interface AdminPanelProps {
 
 export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [failedAttempts, setFailedAttempts] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -22,12 +22,74 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [shopLocation, setShopLocation] = useState<{lat: number, lng: number} | null>(null);
   const [settingLocation, setSettingLocation] = useState(false);
+  
+  const [dailyCodes, setDailyCodes] = useState<Record<string, string>>({});
+  const [generatingCodes, setGeneratingCodes] = useState(false);
+  
+  const [showAddEmployee, setShowAddEmployee] = useState(false);
+  const [newEmpName, setNewEmpName] = useState('');
+  const [newEmpPhone, setNewEmpPhone] = useState('');
+  const [isAddingEmp, setIsAddingEmp] = useState(false);
+  
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
   useEffect(() => {
+    fetchUsers();
     fetchRecords();
     fetchShopLocation();
     fetchFailedAttempts();
+    fetchDailyCodes();
   }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const q = query(collection(db, 'users'));
+      const snapshot = await getDocs(q);
+      const data: any[] = [];
+      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      setAllUsers(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchDailyCodes = async () => {
+    try {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const codesDoc = await getDoc(doc(db, 'daily_codes', todayStr));
+      if (codesDoc.exists()) {
+        setDailyCodes(codesDoc.data());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleGenerateCodes = async () => {
+    if (!window.confirm("Generate new random daily codes for all users? This will overwrite today's existing codes.")) return;
+    setGeneratingCodes(true);
+    try {
+      const q = query(collection(db, 'users'));
+      const snapshot = await getDocs(q);
+      const newCodes: Record<string, string> = {};
+      
+      snapshot.forEach(userDoc => {
+        // Generate 4 digit code
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        newCodes[userDoc.id] = code;
+      });
+
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      await setDoc(doc(db, 'daily_codes', todayStr), newCodes);
+      setDailyCodes(newCodes);
+      alert("Codes generated successfully!");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to generate codes");
+    } finally {
+      setGeneratingCodes(false);
+    }
+  };
 
   const fetchFailedAttempts = async () => {
     try {
@@ -98,16 +160,23 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
 
   const groupedEmployees = useMemo(() => {
     const map = new Map<string, { name: string; records: AttendanceRecord[] }>();
+    
+    // First, initialize all users from `allUsers` array so they always show up
+    allUsers.forEach(user => {
+      map.set(user.id, { name: user.name || 'Unknown', records: [] });
+    });
+
     records.forEach(r => {
       if (!map.has(r.userId)) {
         map.set(r.userId, { name: r.employeeName || 'Unknown Employee', records: [] });
       }
       map.get(r.userId)!.records.push(r);
     });
+    
     const list = Array.from(map.entries()).map(([id, data]) => ({ id, ...data }));
     list.sort((a, b) => a.name.localeCompare(b.name));
     return list;
-  }, [records]);
+  }, [records, allUsers]);
 
   const selectedEmployeeData = useMemo(() => {
     return groupedEmployees.find(e => e.id === selectedUserId);
@@ -159,7 +228,6 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     if (!editingRecord || !editingRecord.id) return;
     setIsSaving(true);
     try {
-      // Reconstitute back to standard ISO
       const updatedClockIn = new Date(editClockIn).toISOString();
       const updatedClockOut = editClockOut ? new Date(editClockOut).toISOString() : undefined;
 
@@ -178,6 +246,49 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       alert('Failed to update record.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmpName || newEmpPhone.length < 10) return;
+    setIsAddingEmp(true);
+    try {
+      const fullPhoneNumber = `+91${newEmpPhone}`;
+      const userId = `user_${newEmpPhone}`;
+
+      const userData = {
+        uid: userId,
+        name: newEmpName,
+        phoneNumber: fullPhoneNumber,
+        photoBase64: '',
+        role: 'employee',
+        createdAt: new Date().toISOString()
+      };
+      
+      await setDoc(doc(db, 'users', userId), userData, { merge: true });
+      
+      // Auto-assign a code if daily codes exist
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const codesDoc = await getDoc(doc(db, 'daily_codes', todayStr));
+      if (codesDoc.exists()) {
+        const existingCodes = codesDoc.data();
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        existingCodes[userId] = code;
+        await setDoc(doc(db, 'daily_codes', todayStr), existingCodes);
+        setDailyCodes(existingCodes);
+      }
+      
+      setShowAddEmployee(false);
+      setNewEmpName('');
+      setNewEmpPhone('');
+      alert("Employee added successfully!");
+      fetchUsers(); // Refresh the list
+    } catch (err) {
+      console.error(err);
+      alert("Failed to add employee");
+    } finally {
+      setIsAddingEmp(false);
     }
   };
 
@@ -298,22 +409,48 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
             <div className="text-center text-[#A0AEC0] font-bold py-10 animate-pulse">Loading...</div>
           ) : !selectedUserId ? (
             <div>
-              <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-8 flex items-center gap-3">
-                <Users className="w-8 h-8 text-[#4ECDC4]" />
-                Team Members
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] flex items-center gap-3">
+                  <Users className="w-8 h-8 text-[#4ECDC4]" />
+                  Team Members
+                </h2>
+                <button
+                  onClick={handleGenerateCodes}
+                  disabled={generatingCodes}
+                  className="bg-[#2D3436] hover:bg-[#1A202C] text-white font-black px-6 py-3 rounded-2xl shadow-md transition-colors disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base self-start sm:self-auto"
+                >
+                  <KeyRound className="w-5 h-5" />
+                  {generatingCodes ? "Generating..." : "Generate Today's Codes"}
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <button
+                  onClick={() => setShowAddEmployee(true)}
+                  className="bg-white border-4 border-dashed border-[#A0AEC0] hover:border-[#4ECDC4] hover:bg-[#F0FFF4] p-6 rounded-[32px] flex flex-col items-center justify-center gap-2 group transition-all min-h-[160px]"
+                >
+                  <div className="w-12 h-12 rounded-full bg-[#E2E8F0] group-hover:bg-[#4ECDC4] text-[#A0AEC0] group-hover:text-white flex items-center justify-center transition-colors">
+                    <span className="text-2xl font-black">+</span>
+                  </div>
+                  <span className="font-bold text-[#A0AEC0] group-hover:text-[#4ECDC4]">Add Employee</span>
+                </button>
                 {groupedEmployees.map(emp => (
                   <div 
                     key={emp.id} 
                     onClick={() => setSelectedUserId(emp.id)}
-                    className="group cursor-pointer bg-[#FFFCF0] border-4 border-transparent hover:border-[#F9D423] p-6 rounded-3xl transition-all flex items-center justify-between"
+                    className="group cursor-pointer bg-[#FFFCF0] border-4 border-transparent hover:border-[#F9D423] p-6 rounded-3xl transition-all flex items-center justify-between relative"
                   >
                     <div>
                       <h3 className="text-xl font-black text-[#2D3436]">{emp.name}</h3>
                       <p className="text-sm font-bold text-[#A0AEC0] mt-1">{emp.records.length} records</p>
+                      
+                      {dailyCodes[emp.id] && (
+                        <div className="mt-4 bg-white px-3 py-2 rounded-xl inline-block border-2 border-gray-100">
+                          <p className="text-[10px] font-black uppercase text-gray-400">TODAY'S PIN</p>
+                          <p className="text-xl font-mono tracking-widest font-bold text-[#FF6B6B]">{dailyCodes[emp.id]}</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#A0AEC0] group-hover:text-[#F9D423] group-hover:bg-white shadow-sm transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#A0AEC0] group-hover:text-[#F9D423] group-hover:bg-white shadow-sm transition-colors absolute right-6 top-6">
                       <ChevronRight className="w-6 h-6" />
                     </div>
                   </div>
@@ -352,9 +489,25 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                     {selectedEmployeeData?.records.map(record => (
                       <tr key={record.id} className="border-b-2 border-[#FFFCF0] hover:bg-[#FFFCF0] transition-colors">
                         <td className="py-4 font-bold text-sm text-[#2D3436] pr-4">{format(new Date(record.clockIn), 'MMM d, yyyy')}</td>
-                        <td className="py-4 font-bold text-sm text-[#4ECDC4] pr-4">{format(new Date(record.clockIn), 'h:mm a')}</td>
+                        <td className="py-4 font-bold text-sm text-[#4ECDC4] pr-4">
+                          <div className="flex items-center gap-2">
+                            {format(new Date(record.clockIn), 'h:mm a')}
+                            {record.clockInPhoto && (
+                              <button onClick={() => setPreviewPhoto(record.clockInPhoto!)} className="text-[#A0AEC0] hover:text-[#4ECDC4]">
+                                <Camera className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-4 font-bold text-sm text-[#FF6B6B] pr-4">
-                          {record.clockOut ? format(new Date(record.clockOut), 'h:mm a') : '—'}
+                          <div className="flex items-center gap-2">
+                            {record.clockOut ? format(new Date(record.clockOut), 'h:mm a') : '—'}
+                            {record.clockOutPhoto && (
+                              <button onClick={() => setPreviewPhoto(record.clockOutPhoto!)} className="text-[#A0AEC0] hover:text-[#FF6B6B]">
+                                <Camera className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 flex justify-end gap-2 min-w-[100px]">
                           <button onClick={() => startEditing(record)} className="p-2 text-gray-500 hover:text-blue-500 bg-white hover:bg-blue-50 rounded-xl transition-colors shadow-sm">
@@ -431,6 +584,85 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                 {isSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Employee Modal */}
+      {showAddEmployee && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-black text-[#2D3436]">Add Employee</h3>
+              <button onClick={() => setShowAddEmployee(false)} className="text-gray-400 hover:text-gray-900 transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddEmployee} className="space-y-4 mb-8">
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Full Name</label>
+                <input 
+                  type="text" 
+                  value={newEmpName}
+                  onChange={e => setNewEmpName(e.target.value)}
+                  placeholder="John Doe"
+                  required
+                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Phone Number</label>
+                <div className="flex">
+                  <span className="flex items-center justify-center bg-[#F0FFF4] border-2 border-r-0 border-gray-200 rounded-l-xl px-4 text-sm font-bold text-[#2D3436]">
+                    +91
+                  </span>
+                  <input 
+                    type="tel" 
+                    value={newEmpPhone}
+                    onChange={e => setNewEmpPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="9876543210"
+                    required
+                    maxLength={10}
+                    className="w-full bg-white rounded-r-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-8">
+                <button 
+                  type="button"
+                  onClick={() => setShowAddEmployee(false)}
+                  className="px-6 py-3 font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isAddingEmp || newEmpPhone.length < 10 || !newEmpName}
+                  className="flex items-center gap-2 px-8 py-3 bg-[#4ECDC4] text-white font-black rounded-full hover:bg-[#26C6DA] transition-colors shadow-sm disabled:opacity-50"
+                >
+                  <Users className="w-4 h-4" />
+                  {isAddingEmp ? 'Adding...' : 'Add Employee'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Preview Modal */}
+      {previewPhoto && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={() => setPreviewPhoto(null)}>
+          <div className="relative max-w-full max-h-full">
+            <button 
+              onClick={() => setPreviewPhoto(null)}
+              className="absolute -top-12 right-0 w-10 h-10 bg-white/10 text-white rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img src={previewPhoto} alt="Attendance Capture" className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl border-4 border-white object-contain bg-black" />
           </div>
         </div>
       )}
