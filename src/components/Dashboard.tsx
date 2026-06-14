@@ -294,8 +294,6 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
   const processClockIn = async (photoBase64: string) => {
     setCameraMode(null);
     if (!activeUserId) return;
-    const isAtShop = await verifyLocation('Clock In');
-    if (!isAtShop) return;
 
     const now = new Date();
     const dateStr = format(now, 'yyyy-MM-dd');
@@ -337,11 +335,6 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
   const processClockOut = async (photoBase64: string | undefined, skipLocation = false) => {
     setCameraMode(null);
     if (!todayRecord || !todayRecord.id) return;
-    
-    if (!skipLocation) {
-      const isAtShop = await verifyLocation('Clock Out');
-      if (!isAtShop) return;
-    }
 
     const now = new Date();
     const isoStr = now.toISOString();
