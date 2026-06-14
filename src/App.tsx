@@ -59,7 +59,7 @@ export default function App() {
     }
   };
 
-  if (isAdmin && isAdminView) {
+  if (isAdminView) {
     return <AdminPanel onBack={() => setIsAdminView(false)} />;
   }
 

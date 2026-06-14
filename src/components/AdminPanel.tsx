@@ -32,6 +32,14 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [isAddingEmp, setIsAddingEmp] = useState(false);
   
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -66,8 +74,12 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   };
 
   const handleGenerateCodes = async () => {
-    if (!window.confirm("Generate new random daily codes for all users? This will overwrite today's existing codes.")) return;
+    if (!confirmGenerate) {
+      setConfirmGenerate(true);
+      return;
+    }
     setGeneratingCodes(true);
+    setConfirmGenerate(false);
     try {
       const q = query(collection(db, 'users'));
       const snapshot = await getDocs(q);
@@ -82,10 +94,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       await setDoc(doc(db, 'daily_codes', todayStr), newCodes);
       setDailyCodes(newCodes);
-      alert("Codes generated successfully!");
+      showToast("Codes generated successfully!");
     } catch (e) {
       console.error(e);
-      alert("Failed to generate codes");
+      showToast("Failed to generate codes", "error");
     } finally {
       setGeneratingCodes(false);
     }
@@ -117,7 +129,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
 
   const handleSetShopLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
+      showToast("Geolocation is not supported by your browser", "error");
       return;
     }
     setSettingLocation(true);
@@ -129,15 +141,15 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       try {
         await setDoc(doc(db, 'system', 'config'), { shopLocation: newLoc }, { merge: true });
         setShopLocation(newLoc);
-        alert("Shop location saved successfully!");
+        showToast("Shop location saved successfully!");
       } catch (err) {
         console.error(err);
-        alert("Failed to save shop location");
+        showToast("Failed to save shop location", "error");
       } finally {
         setSettingLocation(false);
       }
     }, (error) => {
-      alert("Error getting location: " + error.message);
+      showToast("Error getting location: " + error.message, "error");
       setSettingLocation(false);
     }, { enableHighAccuracy: true });
   };
@@ -152,7 +164,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       setRecords(data);
     } catch (error) {
       console.error('Failed to fetch records', error);
-      alert('Failed to load records. Make sure you are an admin.');
+      showToast('Failed to load records. Make sure you are an admin.', 'error');
     } finally {
       setLoading(false);
     }
@@ -241,9 +253,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       await updateDoc(doc(db, 'attendance', editingRecord.id), payload);
       setEditingRecord(null);
       fetchRecords();
+      showToast('Record updated successfully!');
     } catch (error) {
       console.error('Failed to update', error);
-      alert('Failed to update record.');
+      showToast('Failed to update record.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -282,24 +295,30 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       setShowAddEmployee(false);
       setNewEmpName('');
       setNewEmpPhone('');
-      alert("Employee added successfully!");
+      showToast("Employee added successfully!");
       fetchUsers(); // Refresh the list
     } catch (err) {
       console.error(err);
-      alert("Failed to add employee");
+      showToast("Failed to add employee", "error");
     } finally {
       setIsAddingEmp(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this record?')) return;
+    if (confirmDelete !== id) {
+      setConfirmDelete(id);
+      return;
+    }
+    
     try {
       await deleteDoc(doc(db, 'attendance', id));
+      setConfirmDelete(null);
       fetchRecords();
+      showToast('Record deleted successfully!');
     } catch (error) {
       console.error('Failed to delete', error);
-      alert('Failed to delete record.');
+      showToast('Failed to delete record.', 'error');
     }
   };
 
@@ -417,10 +436,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                 <button
                   onClick={handleGenerateCodes}
                   disabled={generatingCodes}
-                  className="bg-[#2D3436] hover:bg-[#1A202C] text-white font-black px-6 py-3 rounded-2xl shadow-md transition-colors disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base self-start sm:self-auto"
+                  className={`${confirmGenerate ? 'bg-[#FF6B6B] hover:bg-[#FF5252]' : 'bg-[#2D3436] hover:bg-[#1A202C]'} text-white font-black px-6 py-3 rounded-2xl shadow-md transition-colors disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base self-start sm:self-auto`}
                 >
                   <KeyRound className="w-5 h-5" />
-                  {generatingCodes ? "Generating..." : "Generate Today's Codes"}
+                  {generatingCodes ? "Generating..." : confirmGenerate ? "Confirm Generate?" : "Generate Today's Codes"}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -513,8 +532,11 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                           <button onClick={() => startEditing(record)} className="p-2 text-gray-500 hover:text-blue-500 bg-white hover:bg-blue-50 rounded-xl transition-colors shadow-sm">
                             <Edit3 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => record.id && handleDelete(record.id)} className="p-2 text-gray-500 hover:text-red-500 bg-white hover:bg-red-50 rounded-xl transition-colors shadow-sm">
+                          <button onClick={() => record.id && handleDelete(record.id)} className={`p-2 hover:text-red-500 bg-white hover:bg-red-50 rounded-xl transition-colors shadow-sm relative ${confirmDelete === record.id ? 'text-red-500 bg-red-50' : 'text-gray-500'}`}>
                             <Trash2 className="w-4 h-4" />
+                            {confirmDelete === record.id && (
+                              <span className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">Tap again to confirm</span>
+                            )}
                           </button>
                         </td>
                       </tr>
@@ -664,6 +686,12 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
             </button>
             <img src={previewPhoto} alt="Attendance Capture" className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl border-4 border-white object-contain bg-black" />
           </div>
+        </div>
+      )}
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full font-bold text-white shadow-lg transition-all z-[60] ${toast.type === 'error' ? 'bg-[#FF6B6B]' : 'bg-[#4ECDC4]'}`}>
+          {toast.message}
         </div>
       )}
     </div>
