@@ -4,7 +4,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-const dbId = firebaseConfig.firestoreDatabaseId || 'ai-studio-dcea4153-5006-4a43-83bf-7eb50fb9c54a';
+const dbId = (firebaseConfig as any).firestoreDatabaseId || 'ai-studio-dcea4153-5006-4a43-83bf-7eb50fb9c54a';
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 }, dbId);

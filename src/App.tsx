@@ -9,6 +9,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import Kiosk from './components/Kiosk';
 import Dashboard from './components/Dashboard';
 import AdminPanel from './components/AdminPanel';
+import DailyExpenses from './components/DailyExpenses';
 
 const ADMIN_NUMBERS = ['+919592838651', '+919888696542', '9592838651', '9888696542'];
 
@@ -18,13 +19,12 @@ export default function App() {
   const [isAdminView, setIsAdminView] = useState(() => {
     return localStorage.getItem('isAdminLoggedIn') === 'true';
   });
-  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordError, setPasswordError] = useState('');
 
   const [showIdleOverlay, setShowIdleOverlay] = useState(false);
   const [showClockOutAlarm, setShowClockOutAlarm] = useState(false);
   const [showBatterySaver, setShowBatterySaver] = useState(false);
+  const [showExpenses, setShowExpenses] = useState(false);
+  const [holdProgress, setHoldProgress] = useState(0);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   const handleCloseAlarm = () => {
@@ -71,9 +71,6 @@ export default function App() {
 
     const triggerIdleState = () => {
       setIsAdminView(false);
-      setShowPasswordPrompt(false);
-      setPasswordInput('');
-      setPasswordError('');
       localStorage.removeItem('isAdminLoggedIn');
       window.dispatchEvent(new Event('appIdleReset'));
       setShowIdleOverlay(true);
@@ -129,6 +126,42 @@ export default function App() {
     };
     const clockOutInterval = setInterval(checkTime, 1000);
 
+    let holdTimer: ReturnType<typeof setTimeout>;
+    let progressTimer: ReturnType<typeof setInterval>;
+    let isHolding = false;
+    
+    const startHold = (e: MouseEvent | TouchEvent) => {
+      if ((e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('button')) return;
+      isHolding = true;
+      let progress = 0;
+      setHoldProgress(0);
+      
+      progressTimer = setInterval(() => {
+        progress += 1;
+        setHoldProgress(progress);
+      }, 100);
+
+      holdTimer = setTimeout(() => {
+        clearInterval(progressTimer);
+        setHoldProgress(0);
+        isHolding = false;
+        setShowExpenses(true);
+      }, 10000); // 10s
+    };
+
+    const cancelHold = () => {
+      if (!isHolding) return;
+      isHolding = false;
+      clearTimeout(holdTimer);
+      clearInterval(progressTimer);
+      setHoldProgress(0);
+    };
+
+    window.addEventListener('mousedown', startHold);
+    window.addEventListener('touchstart', startHold);
+    window.addEventListener('mouseup', cancelHold);
+    window.addEventListener('touchend', cancelHold);
+
     return () => {
       unsubscribe();
       window.removeEventListener('popstate', lockHistory);
@@ -145,6 +178,10 @@ export default function App() {
         batteryManager.removeEventListener('levelchange', updateBatteryStatus);
         batteryManager.removeEventListener('chargingchange', updateBatteryStatus);
       }
+      window.removeEventListener('mousedown', startHold);
+      window.removeEventListener('touchstart', startHold);
+      window.removeEventListener('mouseup', cancelHold);
+      window.removeEventListener('touchend', cancelHold);
     };
   }, []);
 
@@ -167,8 +204,7 @@ export default function App() {
       setIsAdminView(true);
       localStorage.setItem('isAdminLoggedIn', 'true');
     } else {
-      setShowPasswordPrompt(true);
-      setPasswordError('');
+      handleDeveloperLogin();
     }
   };
 
@@ -180,18 +216,6 @@ export default function App() {
     } catch (e) {
       console.error(e);
       alert('Developer login failed');
-    }
-  };
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordInput === 'parth2909') {
-      setShowPasswordPrompt(false);
-      setPasswordInput('');
-      setIsAdminView(true);
-      localStorage.setItem('isAdminLoggedIn', 'true');
-    } else {
-      setPasswordError('Incorrect password');
     }
   };
 
@@ -222,45 +246,6 @@ export default function App() {
         <div className="fixed bottom-4 right-4 text-[10px] font-bold text-[#4ECDC4] bg-white shadow-sm px-3 py-2 rounded-xl z-40 flex items-center gap-2">
           {authUser.email}
           <button onClick={handleLogout} className="text-gray-400 hover:text-[#FF6B6B]">Logout</button>
-        </div>
-      )}
-
-      {showPasswordPrompt && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <form 
-            onSubmit={handlePasswordSubmit}
-            className="bg-white rounded-3xl p-8 max-w-sm w-full border-4 border-[#2D3436] shadow-[8px_8px_0_0_#2D3436]"
-          >
-            <h2 className="text-2xl font-black mb-4">Admin Access</h2>
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-[#A0AEC0] mb-2">ENTER PASSWORD</label>
-              <input 
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full bg-[#FFFCF0] border-2 border-[#FFEAA7] rounded-xl px-4 py-3 font-bold text-[#2D3436] focus:border-[#F9D423] focus:outline-none"
-                autoFocus
-              />
-              {passwordError && (
-                <p className="text-[#FF6B6B] text-sm font-bold mt-2">{passwordError}</p>
-              )}
-            </div>
-            <div className="flex gap-4">
-              <button 
-                type="button" 
-                onClick={() => setShowPasswordPrompt(false)}
-                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit"
-                className="flex-1 py-3 bg-[#F9D423] text-[#8B6E00] rounded-xl font-bold"
-              >
-                Unlock
-              </button>
-            </div>
-          </form>
         </div>
       )}
 
@@ -306,6 +291,44 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {holdProgress > 0 && holdProgress <= 100 && (
+        <div className="fixed inset-0 z-[12000] pointer-events-none flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative flex items-center justify-center">
+            <svg className="w-48 h-48 -rotate-90 transform animate-spin-slow">
+              <circle
+                className="text-white/10"
+                strokeWidth="8"
+                stroke="currentColor"
+                fill="transparent"
+                r="80"
+                cx="96"
+                cy="96"
+              />
+              <circle
+                className="text-[#F9D423]"
+                strokeWidth="8"
+                strokeDasharray={502}
+                strokeDashoffset={502 - (holdProgress / 100) * 502}
+                strokeLinecap="round"
+                stroke="currentColor"
+                fill="transparent"
+                r="80"
+                cx="96"
+                cy="96"
+                style={{ transition: 'stroke-dashoffset 100ms linear' }}
+              />
+            </svg>
+            <div className="absolute font-black text-4xl text-white drop-shadow-xl animate-pulse flex flex-col items-center">
+              <span>{Math.round(10 - (holdProgress/10))}s</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showExpenses && (
+        <DailyExpenses onClose={() => setShowExpenses(false)} />
       )}
     </>
   );

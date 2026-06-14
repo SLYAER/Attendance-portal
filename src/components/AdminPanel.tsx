@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, orderBy, limit, getDocs, doc, updateDoc, deleteDoc, deleteField, getDoc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AttendanceRecord } from '../types';
-import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2, Mail } from 'lucide-react';
+import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2, Mail, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -15,6 +15,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [failedAttempts, setFailedAttempts] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [editStatus, setEditStatus] = useState<'present' | 'absent' | 'half-day'>('present');
@@ -67,7 +68,20 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     fetchShopLocation();
     fetchFailedAttempts();
     fetchDailyCodes();
+    fetchExpenses();
   }, []);
+
+  const fetchExpenses = async () => {
+    try {
+      const q = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'), limit(100));
+      const snapshot = await getDocs(q);
+      const data: any[] = [];
+      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      setExpenses(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -698,6 +712,49 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
               {settingLocation ? "Getting GPS..." : "Set Current Location as Shop"}
             </button>
           </div>
+        </div>
+
+        {/* Expenses Log */}
+        <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] flex items-center gap-3">
+              <DollarSign className="text-[#4ECDC4]" /> Recent Expenses
+            </h2>
+          </div>
+          {expenses.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-100">
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Date added</th>
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Entered By</th>
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Expense Date</th>
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Category</th>
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0]">Description</th>
+                    <th className="py-3 font-bold text-xs uppercase text-[#A0AEC0] text-right">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100/50">
+                  {expenses.map(exp => (
+                    <tr key={exp.id}>
+                      <td className="py-3 text-sm font-bold text-[#A0AEC0]">{format(new Date(exp.createdAt), 'MMM d, p')}</td>
+                      <td className="py-3 text-sm font-bold text-[#2D3436]">{exp.employeeName}</td>
+                      <td className="py-3 text-sm font-bold text-[#2D3436]">{exp.date}</td>
+                      <td className="py-3 text-sm font-bold text-[#A0AEC0]">
+                        <span className="bg-gray-100 px-2 py-1 rounded-md text-[10px] uppercase tracking-wider">{exp.category || 'N/A'}</span>
+                      </td>
+                      <td className="py-3 text-sm font-medium text-[#2D3436]">{exp.description}</td>
+                      <td className="py-3 text-lg font-black text-[#FF6B6B] text-right">-₹{exp.amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+             <div className="flex justify-center items-center h-20 text-[#A0AEC0] font-bold">
+               No recent expenses.
+             </div>
+          )}
         </div>
 
         {/* Analytics Section */}

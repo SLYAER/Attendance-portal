@@ -10,7 +10,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'loveranger900@gmail.com';
+      return request.auth != null && (request.auth.token.email == 'loveranger900@gmail.com' || request.auth.token.email == 'ascendservices.corp@gmail.com');
     }
 
     function existing() {
@@ -21,45 +21,45 @@ service cloud.firestore {
       return request.resource.data;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function isValidAttendance(data) {
-      let isUserIdValid = data.userId is string && data.userId.size() <= 128 && data.userId == request.auth.uid;
-      let isEmployeeNameValid = data.employeeName is string && data.employeeName.size() > 0 && data.employeeName.size() <= 100;
-      let isDateValid = data.date is string && data.date.size() == 10;
-      let isClockInValid = data.clockIn is string && data.clockIn.size() <= 50;
-      
-      let isClockOutValid = (!('clockOut' in data.keys()) || (data.clockOut is string && data.clockOut.size() <= 50));
-      
-      let exactKeysNoOut = !('clockOut' in data.keys()) && data.keys().hasAll(['userId', 'employeeName', 'date', 'clockIn']) && data.keys().size() == 4;
-      let exactKeysWithOut = ('clockOut' in data.keys()) && data.keys().hasAll(['userId', 'employeeName', 'date', 'clockIn', 'clockOut']) && data.keys().size() == 5;
-      
-      return isUserIdValid && isEmployeeNameValid && isDateValid && isClockInValid && isClockOutValid && (exactKeysNoOut || exactKeysWithOut);
-    }
-
     match /users/{userId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        !('password' in resource.data) && 
+        'password' in request.resource.data && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['password'])
+      );
     }
 
     match /system/{docId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isAdmin();
     }
 
     match /attendance/{recordId} {
       allow read: if true;
-      allow create: if true;
-      allow update, delete: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
     }
+    
     match /failed_attempts/{recordId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if true;
+      allow read, create, update: if true;
+      allow delete: if isAdmin();
     }
+    
     match /daily_codes/{dayId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /expenses/{expenseId} {
+      allow read, create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /mail/{mailId} {
+      allow create: if isAdmin();
+      allow read, update, delete: if false;
     }
   }
 }
