@@ -75,16 +75,29 @@ export default function App() {
       setShowIdleOverlay(true);
     };
 
-    let idleTimer: ReturnType<typeof setTimeout>;
-    const resetIdleTimer = () => {
-      clearTimeout(idleTimer);
-      // 10 minutes
-      idleTimer = setTimeout(triggerIdleState, 10 * 60 * 1000); 
+    let lastInteractionTime = Date.now();
+    const handleInteraction = () => {
+      lastInteractionTime = Date.now();
     };
 
     const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'];
-    events.forEach(e => window.addEventListener(e, resetIdleTimer));
-    resetIdleTimer();
+    events.forEach(e => window.addEventListener(e, handleInteraction));
+
+    const idleCheckInterval = setInterval(() => {
+      const isProfileSelector = document.getElementById('profile-selector-screen');
+      const isPinModal = document.getElementById('pin-modal');
+      const isExpenses = document.getElementById('daily-expenses-modal');
+      
+      let timeoutMs = 10 * 60 * 1000; // 10 minutes default
+      if (isProfileSelector && !isPinModal && !isExpenses) {
+        timeoutMs = 30 * 1000; // 30 seconds for profile selector
+      }
+      
+      if (Date.now() - lastInteractionTime > timeoutMs) {
+        lastInteractionTime = Date.now(); 
+        triggerIdleState();
+      }
+    }, 1000);
 
     let tapCount = 0;
     let tapTimer: ReturnType<typeof setTimeout>;
@@ -167,9 +180,9 @@ export default function App() {
     return () => {
       unsubscribe();
       window.removeEventListener('popstate', lockHistory);
-      clearTimeout(idleTimer);
+      clearInterval(idleCheckInterval);
       clearTimeout(tapTimer);
-      events.forEach(e => window.removeEventListener(e, resetIdleTimer));
+      events.forEach(e => window.removeEventListener(e, handleInteraction));
       window.removeEventListener('click', handleTripleClick);
       clearInterval(clockOutInterval);
       clearTimeout(alarmTimer);
