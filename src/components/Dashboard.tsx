@@ -316,8 +316,10 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
 
 
     try {
-      await setDoc(newDocRef, record);
-      setSuccessMessage('Clocked in successfully! Closing...');
+      setDoc(newDocRef, record).catch(error => {
+        console.error('Offline setDoc error (deferred)', error);
+      });
+      setSuccessMessage('Clocked in successfully! (Saved locally, syncing in background)');
       setTimeout(() => {
         try { window.close(); } catch (e) {}
         if (localUser) {
@@ -354,9 +356,11 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     }
 
     try {
-      await updateDoc(doc(db, 'attendance', todayRecord.id), updateData);
+      updateDoc(doc(db, 'attendance', todayRecord.id), updateData).catch(error => {
+        console.error('Offline updateDoc error (deferred)', error);
+      });
       if (!skipLocation) {
-        setSuccessMessage('Clocked out successfully! Closing...');
+        setSuccessMessage('Clocked out successfully! (Saved locally, syncing in background)');
         setTimeout(() => {
           try { window.close(); } catch (e) {}
           if (localUser) {

@@ -1,11 +1,32 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(), 
+      tailwindcss(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        devOptions: {
+          enabled: true
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          sourcemap: true
+        },
+        manifest: {
+          name: 'Attendance Portal',
+          short_name: 'Attendance',
+          description: 'Attendance portal with offline support',
+          theme_color: '#ffffff',
+          display: 'standalone',
+        }
+      })
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
