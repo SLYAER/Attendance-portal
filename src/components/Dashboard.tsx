@@ -26,7 +26,6 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
   const [userData, setUserData] = useState<any>(null);
   const [cameraMode, setCameraMode] = useState<'in' | 'out' | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
-  const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
   const [confirmClockOut, setConfirmClockOut] = useState(false);
 
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
@@ -50,25 +49,23 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     const daysInCycle = Math.round((cycleEndObj.getTime() - cycleStartObj.getTime()) / (1000 * 60 * 60 * 24));
     
     const attendedDates = new Set();
+    let absents = 0;
+    
     allRecords.forEach(r => {
       const rDate = new Date(r.date);
-      if (rDate >= cycleStartObj && rDate <= now && r.status !== 'absent') {
-        attendedDates.add(r.date);
+      // We count all absents in the cycle (even if in future of cycle)
+      if (rDate >= cycleStartObj && rDate < cycleEndObj) {
+        if (r.status === 'absent') {
+          absents++;
+        } else {
+          attendedDates.add(r.date);
+        }
       }
     });
 
     const elapsedMs = now.getTime() - cycleStartObj.getTime();
     let elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
     if (elapsedDays < 0) elapsedDays = 0;
-    
-    let absents = 0;
-    for (let i = 0; i < elapsedDays; i++) {
-        const d = new Date(cycleStartObj.getFullYear(), cycleStartObj.getMonth(), cycleStartObj.getDate() + i);
-        const dateStr = format(d, 'yyyy-MM-dd');
-        if (!attendedDates.has(dateStr)) {
-            absents++;
-        }
-    }
     
     const perDay = userData.monthlySalary / daysInCycle;
     const deductions = absents * perDay;
@@ -89,6 +86,27 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
       cycleEnd: format(cycleEndObj, 'MMM d')
     };
   }, [userData, allRecords, activeUserId]);
+
+  const cycleRecords = React.useMemo(() => {
+    if (!userData) return [];
+
+    const now = new Date();
+    const startDateStr = userData.joinDate || userData.createdAt;
+    const joinDateObj = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const cycleDay = joinDateObj.getDate();
+    
+    let cycleStartObj = new Date(now.getFullYear(), now.getMonth(), cycleDay);
+    if (now.getDate() < cycleDay) {
+      cycleStartObj = new Date(now.getFullYear(), now.getMonth() - 1, cycleDay);
+    }
+    
+    const cycleEndObj = new Date(cycleStartObj.getFullYear(), cycleStartObj.getMonth() + 1, cycleDay);
+
+    return allRecords.filter(r => {
+        const rDate = new Date(r.date);
+        return rDate >= cycleStartObj && rDate < cycleEndObj;
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [userData, allRecords]);
 
   // Real-time clock update
   useEffect(() => {
@@ -152,9 +170,6 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
       
       setAllRecords(records);
       setRecentRecords(records.slice(0, 7));
-      
-      const currentMonth = format(new Date(), 'yyyy-MM');
-      setMonthlyRecords(records.filter(r => r.date.startsWith(currentMonth)));
       
       const today = format(new Date(), 'yyyy-MM-dd');
       const todayRec = records.find(r => r.date === today);
@@ -510,12 +525,12 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
             </div>
 
             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-              {monthlyRecords.length === 0 ? (
+              {cycleRecords.length === 0 ? (
                 <div className="text-center text-[#A0AEC0] font-medium py-4">
                   No previous attendance records found.
                 </div>
               ) : (
-                monthlyRecords.map(record => (
+                cycleRecords.map(record => (
                   <div key={record.id} className="flex items-center justify-between border-b-2 border-[#FFFCF0] pb-4">
                     <div className="flex flex-col gap-1">
                       <p className="font-bold text-sm text-[#2D3436]">{record.date ? format(new Date(record.date), 'MMM d, yyyy') : record.clockIn ? format(new Date(record.clockIn), 'MMM d, yyyy') : '—'}</p>
@@ -557,12 +572,12 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
               <h3 className="text-xl font-black uppercase tracking-wider text-[#2D3436]">History</h3>
             </div>
              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-              {monthlyRecords.length === 0 ? (
+              {cycleRecords.length === 0 ? (
                 <div className="text-center text-[#A0AEC0] font-medium py-4">
                   No previous attendance records found.
                 </div>
               ) : (
-                monthlyRecords.map(record => (
+                cycleRecords.map(record => (
                   <div key={record.id} className="flex items-center justify-between border-b-2 border-[#FFFCF0] pb-4">
                     <div className="flex flex-col gap-1">
                       <p className="font-bold text-sm text-[#2D3436]">{record.date ? format(new Date(record.date), 'MMM d, yyyy') : record.clockIn ? format(new Date(record.clockIn), 'MMM d, yyyy') : '—'}</p>

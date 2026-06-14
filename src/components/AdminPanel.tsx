@@ -243,25 +243,22 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     const daysInCycle = Math.round((cycleEndObj.getTime() - cycleStartObj.getTime()) / (1000 * 60 * 60 * 24));
     
     const attendedDates = new Set();
+    let absents = 0;
+    
     selectedEmployeeData.records.forEach(r => {
       const rDate = new Date(r.date);
-      if (rDate >= cycleStartObj && rDate <= now && r.status !== 'absent') {
-        attendedDates.add(r.date);
+      if (rDate >= cycleStartObj && rDate < cycleEndObj) {
+        if (r.status === 'absent') {
+          absents++;
+        } else {
+          attendedDates.add(r.date);
+        }
       }
     });
 
     const elapsedMs = now.getTime() - cycleStartObj.getTime();
     let elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
     if (elapsedDays < 0) elapsedDays = 0;
-    
-    let absents = 0;
-    for (let i = 0; i < elapsedDays; i++) {
-        const d = new Date(cycleStartObj.getFullYear(), cycleStartObj.getMonth(), cycleStartObj.getDate() + i);
-        const dateStr = format(d, 'yyyy-MM-dd');
-        if (!attendedDates.has(dateStr)) {
-            absents++;
-        }
-    }
     
     const perDay = selectedEmployeeData.monthlySalary / daysInCycle;
     const deductions = absents * perDay;
