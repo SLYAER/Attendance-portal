@@ -2,9 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, orderBy, limit, getDocs, doc, updateDoc, deleteDoc, deleteField, getDoc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AttendanceRecord } from '../types';
-import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { getGmailTokenAndUser, sendGmailMessage } from '../lib/gmail';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -36,6 +37,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmpPhone, setNewEmpPhone] = useState('');
+  const [newEmpEmail, setNewEmpEmail] = useState('');
   const [newEmpSalary, setNewEmpSalary] = useState('');
   const [newEmpJoinDate, setNewEmpJoinDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [isAddingEmp, setIsAddingEmp] = useState(false);
@@ -43,6 +45,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [editEmpId, setEditEmpId] = useState<string | null>(null);
   const [editEmpName, setEditEmpName] = useState('');
   const [editEmpPhone, setEditEmpPhone] = useState('');
+  const [editEmpEmail, setEditEmpEmail] = useState('');
   const [editEmpSalary, setEditEmpSalary] = useState('');
   const [editEmpJoinDate, setEditEmpJoinDate] = useState('');
   const [isEditingEmp, setIsEditingEmp] = useState(false);
@@ -244,14 +247,18 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     
     const attendedDates = new Set();
     let absents = 0;
+    let fullAbsents = 0;
+    let halfDays = 0;
     
     selectedEmployeeData.records.forEach(r => {
       const rDate = new Date(r.date);
       if (rDate >= cycleStartObj && rDate < cycleEndObj) {
         if (r.status === 'absent') {
           absents += 1;
+          fullAbsents += 1;
         } else if (r.status === 'half-day') {
           absents += 0.5;
+          halfDays += 1;
           attendedDates.add(r.date);
         } else {
           attendedDates.add(r.date);
@@ -275,6 +282,8 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       elapsed: elapsedDays,
       attended: attendedDates.size,
       absent: absents,
+      fullAbsents,
+      halfDays,
       advanceTaken: advance,
       remainingSalary: Math.round(remainingSalary),
       deductions: Math.round(deductions),
@@ -336,6 +345,59 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     }
   };
 
+  const handleSendAbsentNotification = async (employee: any, payload: any) => {
+    const isHalfDay = payload.status === 'half-day';
+
+    try {
+      showToast('Authenticating with Gmail...', 'success');
+      const { accessToken } = await getGmailTokenAndUser();
+      
+      const subject = isHalfDay ? 'Notice: Half Day Marked' : 'Notice: Absence Marked';
+      const body = `Hello ${employee.name},\n\n`
+        + `This is to inform you that you have been marked as ${isHalfDay ? 'HALF DAY' : 'ABSENT'} for ${format(new Date(payload.date), 'MMM d, yyyy')}.\n`
+        + `Please note that applicable fines or deductions will be applied to your monthly salary.\n\n`
+        + `Best,\nManagement`;
+
+      await sendGmailMessage(accessToken, employee.email, subject, body);
+      showToast('Notification email sent successfully!');
+    } catch (e: any) {
+      console.error(e);
+      showToast('Failed to send email: ' + e.message, 'error');
+    }
+  };
+
+  const handleSendMonthlyReport = async (employee: any, salaryData: any) => {
+    if (!employee.email) {
+      showToast('Employee does not have an email address set.', 'error');
+      return;
+    }
+
+    try {
+      showToast('Authenticating with Gmail...', 'success');
+      const { accessToken } = await getGmailTokenAndUser();
+      
+      const subject = `Monthly Salary Report: ${employee.name}`;
+      const body = `Hello ${employee.name},\n\n`
+        + `Here is your salary report for the current cycle:\n`
+        + `-------------------------------------------------\n`
+        + `Total Salary Configured: ₹${employee.monthlySalary?.toLocaleString() || 0}\n`
+        + `Presents: ${salaryData.attended} days\n`
+        + `Half Days: ${salaryData.halfDays || 0} days\n`
+        + `Absents: ${salaryData.fullAbsents} days\n\n`
+        + `Deductions (Absents & Half days): ₹${salaryData.deductions.toLocaleString()}\n`
+        + `Advances Taken: ₹${salaryData.advanceTaken.toLocaleString()}\n`
+        + `-------------------------------------------------\n`
+        + `NET SALARY PAYABLE: ₹${salaryData.remainingSalary.toLocaleString()}\n\n`
+        + `Best,\nManagement`;
+
+      await sendGmailMessage(accessToken, employee.email, subject, body);
+      showToast('Monthly report email sent successfully!', 'success');
+    } catch (e: any) {
+      console.error(e);
+      showToast('Failed to send report: ' + e.message, 'error');
+    }
+  };
+
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserId || !selectedEmployeeData) return;
@@ -365,6 +427,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       setAddRecordClockOut('');
       fetchRecords();
       showToast('Record added successfully!');
+
+      if ((addRecordStatus === 'absent' || addRecordStatus === 'half-day') && selectedEmployeeData.email) {
+        handleSendAbsentNotification(selectedEmployeeData, payload);
+      }
     } catch (error) {
       console.error('Failed to add record', error);
       showToast('Failed to add record.', 'error');
@@ -402,6 +468,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       setEditingRecord(null);
       fetchRecords();
       showToast('Record updated successfully!');
+      
+      if ((editStatus === 'absent' || editStatus === 'half-day') && selectedEmployeeData?.email) {
+        handleSendAbsentNotification(selectedEmployeeData, { ...editingRecord, ...payload });
+      }
     } catch (error) {
       console.error('Failed to update', error);
       showToast('Failed to update record.', 'error');
@@ -422,6 +492,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         uid: userId,
         name: newEmpName,
         phoneNumber: fullPhoneNumber,
+        email: newEmpEmail,
         monthlySalary: Number(newEmpSalary) || 0,
         joinDate: newEmpJoinDate,
         advanceTaken: 0,
@@ -446,6 +517,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       setShowAddEmployee(false);
       setNewEmpName('');
       setNewEmpPhone('');
+      setNewEmpEmail('');
       setNewEmpSalary('');
       setNewEmpJoinDate(format(new Date(), 'yyyy-MM-dd'));
       showToast("Employee added successfully!");
@@ -470,6 +542,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       await updateDoc(doc(db, 'users', editEmpId), {
         name: editEmpName,
         phoneNumber: fullPhoneNumber,
+        email: editEmpEmail,
         monthlySalary: Number(editEmpSalary) || 0,
         joinDate: editEmpJoinDate,
       });
@@ -489,6 +562,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     setEditEmpId(emp.id);
     setEditEmpName(emp.name || '');
     setEditEmpPhone(emp.phoneNumber ? emp.phoneNumber.replace('+91', '') : '');
+    setEditEmpEmail(emp.email || '');
     setEditEmpSalary(emp.monthlySalary?.toString() || '');
     setEditEmpJoinDate(emp.joinDate || format(new Date(), 'yyyy-MM-dd'));
   };
@@ -804,6 +878,15 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                       <div className="border-l-2 border-gray-200 pl-4">
                         <span className="block text-[10px] font-black uppercase text-[#A0AEC0]">Advance</span>
                         <span className="text-xl font-black text-[#FFB020]">₹{selectedEmployeeSalary.advanceTaken.toLocaleString()}</span>
+                      </div>
+                      <div className="ml-auto">
+                        <button
+                          onClick={() => handleSendMonthlyReport(selectedEmployeeData, selectedEmployeeSalary)}
+                          className="flex items-center gap-2 px-4 py-2 bg-white text-[#2D3436] font-black rounded-lg border-2 border-[#4ECDC4]/20 hover:bg-[#F0FFF4] transition-colors text-xs uppercase"
+                        >
+                          <Mail className="w-4 h-4" />
+                          Email Report
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1129,6 +1212,17 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Email Address (Optional)</label>
+                <input 
+                  type="email" 
+                  value={newEmpEmail}
+                  onChange={e => setNewEmpEmail(e.target.value)}
+                  placeholder="john@gmail.com"
+                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                />
+              </div>
               
               <div>
                 <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Phone Number</label>
@@ -1218,6 +1312,17 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   value={editEmpName}
                   onChange={e => setEditEmpName(e.target.value)}
                   required
+                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Email Address (Optional)</label>
+                <input 
+                  type="email" 
+                  value={editEmpEmail}
+                  onChange={e => setEditEmpEmail(e.target.value)}
+                  placeholder="john@gmail.com"
                   className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
                 />
               </div>

@@ -65,7 +65,15 @@ export default function CameraModal({ onCapture, onClose, title }: CameraModalPr
         <h3 className="text-xl font-black uppercase text-[#2D3436] mb-4">{title}</h3>
         
         {error ? (
-          <div className="text-[#FF6B6B] font-bold py-10 text-center">{error}</div>
+          <div className="text-[#FF6B6B] font-bold py-10 text-center flex flex-col gap-4">
+            <p>{error}</p>
+            <button
+              onClick={() => onCapture('')}
+              className="px-6 py-3 bg-[#FFEAA7] text-[#2D3436] font-black rounded-xl hover:bg-[#F9D423] transition-colors mt-2"
+            >
+              CONTINUE WITHOUT PHOTO
+            </button>
+          </div>
         ) : (
           <div className="relative w-full aspect-square bg-gray-100 rounded-[24px] overflow-hidden mb-6 border-4 border-[#FFEAA7]">
             <video 
@@ -78,14 +86,23 @@ export default function CameraModal({ onCapture, onClose, title }: CameraModalPr
           </div>
         )}
 
-        <button
-          onClick={handleCapture}
-          disabled={!!error}
-          className="w-full py-5 bg-[#4ECDC4] hover:bg-[#26C6DA] text-white font-black text-xl rounded-2xl shadow-[0_6px_0_0_#26A69A] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Camera className="w-6 h-6" />
-          CAPTURE PHOTO
-        </button>
+        {!error && (
+          <div className="w-full flex flex-col gap-3">
+            <button
+              onClick={handleCapture}
+              className="w-full py-5 bg-[#4ECDC4] hover:bg-[#26C6DA] text-white font-black text-xl rounded-2xl shadow-[0_6px_0_0_#26A69A] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2"
+            >
+              <Camera className="w-6 h-6" />
+              CAPTURE PHOTO
+            </button>
+            <button
+              onClick={() => onCapture('')}
+              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold tracking-wider text-sm rounded-xl transition-all"
+            >
+              SKIP PHOTO
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

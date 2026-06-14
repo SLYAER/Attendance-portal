@@ -309,8 +309,11 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
       employeeName: userData?.name || 'Employee',
       date: dateStr,
       clockIn: isoStr,
-      clockInPhoto: photoBase64
     };
+    if (photoBase64) {
+      record.clockInPhoto = photoBase64;
+    }
+
 
     try {
       await setDoc(newDocRef, record);
@@ -340,7 +343,12 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     const now = new Date();
     const isoStr = now.toISOString();
 
-    const updateData: any = { clockOut: isoStr };
+    let finalStatus = todayRecord.status || 'present';
+    if (now.getHours() < 14) {
+      finalStatus = 'half-day';
+    }
+
+    const updateData: any = { clockOut: isoStr, status: finalStatus };
     if (photoBase64) {
       updateData.clockOutPhoto = photoBase64;
     }
