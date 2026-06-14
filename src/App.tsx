@@ -38,30 +38,50 @@ export default function App() {
       setLoading(false);
     });
 
+    const triggerIdleState = () => {
+      setIsAdminView(false);
+      setShowPasswordPrompt(false);
+      setPasswordInput('');
+      setPasswordError('');
+      localStorage.removeItem('isAdminLoggedIn');
+      window.dispatchEvent(new Event('appIdleReset'));
+      setShowIdleOverlay(true);
+    };
+
     let idleTimer: ReturnType<typeof setTimeout>;
     const resetIdleTimer = () => {
       clearTimeout(idleTimer);
       // 10 minutes
-      idleTimer = setTimeout(() => {
-        setIsAdminView(false);
-        setShowPasswordPrompt(false);
-        setPasswordInput('');
-        setPasswordError('');
-        localStorage.removeItem('isAdminLoggedIn');
-        window.dispatchEvent(new Event('appIdleReset'));
-        setShowIdleOverlay(true);
-      }, 10 * 60 * 1000); 
+      idleTimer = setTimeout(triggerIdleState, 10 * 60 * 1000); 
     };
 
     const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'];
     events.forEach(e => window.addEventListener(e, resetIdleTimer));
     resetIdleTimer();
 
+    let tapCount = 0;
+    let tapTimer: ReturnType<typeof setTimeout>;
+    const handleTripleClick = () => {
+      tapCount++;
+      clearTimeout(tapTimer);
+      if (tapCount >= 3) {
+        tapCount = 0;
+        triggerIdleState();
+      } else {
+        tapTimer = setTimeout(() => {
+          tapCount = 0;
+        }, 500); // 500ms window for 3 taps
+      }
+    };
+    window.addEventListener('click', handleTripleClick);
+
     return () => {
       unsubscribe();
       window.removeEventListener('popstate', lockHistory);
       clearTimeout(idleTimer);
+      clearTimeout(tapTimer);
       events.forEach(e => window.removeEventListener(e, resetIdleTimer));
+      window.removeEventListener('click', handleTripleClick);
     };
   }, []);
 
