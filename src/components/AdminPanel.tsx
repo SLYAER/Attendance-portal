@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, query, orderBy, limit, getDocs, doc, updateDoc, deleteDoc, deleteField, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, updateDoc, deleteDoc, deleteField, getDoc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AttendanceRecord } from '../types';
 import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2 } from 'lucide-react';
@@ -17,8 +17,14 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [failedAttempts, setFailedAttempts] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  const [editStatus, setEditStatus] = useState<'present' | 'absent'>('present');
   const [editClockIn, setEditClockIn] = useState('');
   const [editClockOut, setEditClockOut] = useState('');
+  const [isAddingRecord, setIsAddingRecord] = useState(false);
+  const [addRecordDate, setAddRecordDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [addRecordStatus, setAddRecordStatus] = useState<'present' | 'absent'>('present');
+  const [addRecordClockIn, setAddRecordClockIn] = useState('09:00');
+  const [addRecordClockOut, setAddRecordClockOut] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [shopLocation, setShopLocation] = useState<{lat: number, lng: number} | null>(null);
   const [settingLocation, setSettingLocation] = useState(false);
@@ -220,9 +226,66 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     return groupedEmployees.find(e => e.id === selectedUserId);
   }, [groupedEmployees, selectedUserId]);
 
+  const selectedEmployeeSalary = useMemo(() => {
+    if (!selectedEmployeeData?.monthlySalary) return null;
+    
+    const now = new Date();
+    const startDateStr = selectedEmployeeData.joinDate || selectedEmployeeData.createdAt;
+    const joinDateObj = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const cycleDay = joinDateObj.getDate();
+    
+    let cycleStartObj = new Date(now.getFullYear(), now.getMonth(), cycleDay);
+    if (now.getDate() < cycleDay) {
+      cycleStartObj = new Date(now.getFullYear(), now.getMonth() - 1, cycleDay);
+    }
+    
+    const cycleEndObj = new Date(cycleStartObj.getFullYear(), cycleStartObj.getMonth() + 1, cycleDay);
+    const daysInCycle = Math.round((cycleEndObj.getTime() - cycleStartObj.getTime()) / (1000 * 60 * 60 * 24));
+    
+    const attendedDates = new Set();
+    selectedEmployeeData.records.forEach(r => {
+      const rDate = new Date(r.date);
+      if (rDate >= cycleStartObj && rDate <= now && r.status !== 'absent') {
+        attendedDates.add(r.date);
+      }
+    });
+
+    const elapsedMs = now.getTime() - cycleStartObj.getTime();
+    let elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+    if (elapsedDays < 0) elapsedDays = 0;
+    
+    let absents = 0;
+    for (let i = 0; i < elapsedDays; i++) {
+        const d = new Date(cycleStartObj.getFullYear(), cycleStartObj.getMonth(), cycleStartObj.getDate() + i);
+        const dateStr = format(d, 'yyyy-MM-dd');
+        if (!attendedDates.has(dateStr)) {
+            absents++;
+        }
+    }
+    
+    const perDay = selectedEmployeeData.monthlySalary / daysInCycle;
+    const deductions = absents * perDay;
+    const advance = selectedEmployeeData.advanceTaken || 0;
+    const remainingSalary = selectedEmployeeData.monthlySalary - advance - deductions;
+
+    return {
+      monthlySalary: selectedEmployeeData.monthlySalary,
+      perDay: Math.round(perDay),
+      daysInCycle,
+      elapsed: elapsedDays,
+      attended: attendedDates.size,
+      absent: absents,
+      advanceTaken: advance,
+      remainingSalary: Math.round(remainingSalary),
+      deductions: Math.round(deductions),
+      cycleStart: format(cycleStartObj, 'MMM d'),
+      cycleEnd: format(cycleEndObj, 'MMM d')
+    };
+  }, [selectedEmployeeData]);
+
   const activeStaff = useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    return records.filter(r => r.date === today && !r.clockOut);
+    return records.filter(r => r.date === today && !r.clockOut && r.status !== 'absent');
   }, [records]);
 
   const recordsForSelectedDate = useMemo(() => {
@@ -255,12 +318,14 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
 
   const startEditing = (record: AttendanceRecord) => {
     setEditingRecord(record);
+    setEditStatus((record.status as 'present' | 'absent') || 'present');
     // Format dates for datetime-local input
-    setEditClockIn(formatForInput(record.clockIn));
+    setEditClockIn(record.clockIn ? formatForInput(record.clockIn) : '');
     setEditClockOut(record.clockOut ? formatForInput(record.clockOut) : '');
   };
 
-  const formatForInput = (isoString: string) => {
+  const formatForInput = (isoString?: string) => {
+    if (!isoString) return '';
     try {
       const date = new Date(isoString);
       // Construct format "YYYY-MM-DDThh:mm"
@@ -271,17 +336,65 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     }
   };
 
-  const handleSave = async () => {
-    if (!editingRecord || !editingRecord.id) return;
+  const handleAddRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserId || !selectedEmployeeData) return;
     setIsSaving(true);
     try {
-      const updatedClockIn = new Date(editClockIn).toISOString();
-      const updatedClockOut = editClockOut ? new Date(editClockOut).toISOString() : undefined;
+      const payload: any = {
+        userId: selectedUserId,
+        employeeName: selectedEmployeeData.name,
+        date: addRecordDate,
+        status: addRecordStatus,
+      };
+      
+      if (addRecordStatus === 'present') {
+        const clockInDate = new Date(`${addRecordDate}T${addRecordClockIn}`);
+        payload.clockIn = clockInDate.toISOString();
+        if (addRecordClockOut) {
+          const clockOutDate = new Date(`${addRecordDate}T${addRecordClockOut}`);
+          payload.clockOut = clockOutDate.toISOString();
+        }
+      }
+      
+      await addDoc(collection(db, 'attendance'), payload);
+      setIsAddingRecord(false);
+      setAddRecordDate(format(new Date(), 'yyyy-MM-dd'));
+      setAddRecordStatus('present');
+      setAddRecordClockIn('09:00');
+      setAddRecordClockOut('');
+      fetchRecords();
+      showToast('Record added successfully!');
+    } catch (error) {
+      console.error('Failed to add record', error);
+      showToast('Failed to add record.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-      const payload: any = { clockIn: updatedClockIn };
-      if (updatedClockOut) {
-        payload.clockOut = updatedClockOut;
+  const handleSave = async () => {
+    if (!editingRecord || !editingRecord.id) return;
+    
+    if (editStatus === 'present' && !editClockIn) {
+      showToast('Please specify a valid Clock In time', 'error');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const payload: any = { status: editStatus };
+      if (editStatus === 'present') {
+        const updatedClockIn = new Date(editClockIn).toISOString();
+        const updatedClockOut = editClockOut ? new Date(editClockOut).toISOString() : undefined;
+        payload.clockIn = updatedClockIn;
+        if (updatedClockOut) {
+          payload.clockOut = updatedClockOut;
+        } else {
+          payload.clockOut = deleteField();
+        }
       } else {
+        payload.clockIn = deleteField();
         payload.clockOut = deleteField();
       }
 
@@ -549,20 +662,26 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                     <span className="font-bold text-[#2D3436] text-lg">{record.employeeName}</span>
                     <span className="text-xs font-black text-[#A0AEC0]">{format(new Date(record.date), 'MMM d, yyyy')}</span>
                   </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#A0AEC0] uppercase">In:</span>
-                      <span className="text-sm font-black text-[#4ECDC4]">{format(new Date(record.clockIn), 'h:mm a')}</span>
+                  {record.status === 'absent' ? (
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-sm font-black text-[#FF6B6B] uppercase">Absent</span>
                     </div>
-                    {record.clockOut ? (
+                  ) : (
+                    <div className="flex justify-between items-center mt-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-[#A0AEC0] uppercase">Out:</span>
-                        <span className="text-sm font-black text-[#FF6B6B]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                        <span className="text-xs font-bold text-[#A0AEC0] uppercase">In:</span>
+                        <span className="text-sm font-black text-[#4ECDC4]">{record.clockIn ? format(new Date(record.clockIn), 'h:mm a') : '—'}</span>
                       </div>
-                    ) : (
-                      <span className="text-sm font-black text-[#F9D423]">Active</span>
-                    )}
-                  </div>
+                      {record.clockOut ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-[#A0AEC0] uppercase">Out:</span>
+                          <span className="text-sm font-black text-[#FF6B6B]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-black text-[#F9D423]">Active</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )) : (
                 <div className="text-center text-[#A0AEC0] font-bold py-6">No attendance records for this date.</div>
@@ -653,6 +772,23 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                     </p>
                   </div>
                   
+                  {selectedEmployeeSalary && (
+                    <div className="bg-[#4ECDC4]/10 rounded-2xl p-4 border-2 border-[#4ECDC4]/20 flex items-center gap-4 flex-wrap">
+                      <div>
+                        <span className="block text-[10px] font-black uppercase text-[#A0AEC0]">Remaining Salary</span>
+                        <span className="text-xl font-black text-[#4ECDC4]">₹{selectedEmployeeSalary.remainingSalary.toLocaleString()}</span>
+                      </div>
+                      <div className="border-l-2 border-gray-200 pl-4">
+                        <span className="block text-[10px] font-black uppercase text-[#A0AEC0]">Deductions ({selectedEmployeeSalary.absent} Absent)</span>
+                        <span className="text-xl font-black text-[#FF6B6B]">₹{selectedEmployeeSalary.deductions.toLocaleString()}</span>
+                      </div>
+                      <div className="border-l-2 border-gray-200 pl-4">
+                        <span className="block text-[10px] font-black uppercase text-[#A0AEC0]">Advance</span>
+                        <span className="text-xl font-black text-[#FFB020]">₹{selectedEmployeeSalary.advanceTaken.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="bg-[#FFFCF0] rounded-2xl p-4 border-2 border-[#FFEAA7] flex items-center gap-4">
                     <div>
                       <span className="block text-[10px] font-black uppercase text-[#A0AEC0]">Advance Taken</span>
@@ -705,6 +841,15 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                 </div>
               </div>
               
+              <div className="flex justify-between items-center mb-4 mt-8">
+                <h3 className="text-xl font-black text-[#2D3436]">Records</h3>
+                <button
+                  onClick={() => setIsAddingRecord(true)}
+                  className="bg-[#4ECDC4] hover:bg-[#26C6DA] text-white px-4 py-2 rounded-xl font-bold transition-colors shadow-sm text-sm"
+                >
+                  + Add Past Record
+                </button>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -718,27 +863,35 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   <tbody>
                     {selectedEmployeeData?.records.map(record => (
                       <tr key={record.id} className="border-b-2 border-[#FFFCF0] hover:bg-[#FFFCF0] transition-colors">
-                        <td className="py-4 font-bold text-sm text-[#2D3436] pr-4">{format(new Date(record.clockIn), 'MMM d, yyyy')}</td>
-                        <td className="py-4 font-bold text-sm text-[#4ECDC4] pr-4">
-                          <div className="flex items-center gap-2">
-                            {format(new Date(record.clockIn), 'h:mm a')}
-                            {record.clockInPhoto && (
-                              <button onClick={() => setPreviewPhoto(record.clockInPhoto!)} className="text-[#A0AEC0] hover:text-[#4ECDC4]">
-                                <Camera className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-4 font-bold text-sm text-[#FF6B6B] pr-4">
-                          <div className="flex items-center gap-2">
-                            {record.clockOut ? format(new Date(record.clockOut), 'h:mm a') : '—'}
-                            {record.clockOutPhoto && (
-                              <button onClick={() => setPreviewPhoto(record.clockOutPhoto!)} className="text-[#A0AEC0] hover:text-[#FF6B6B]">
-                                <Camera className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
+                        <td className="py-4 font-bold text-sm text-[#2D3436] pr-4">{record.date ? format(new Date(record.date), 'MMM d, yyyy') : record.clockIn ? format(new Date(record.clockIn), 'MMM d, yyyy') : '—'}</td>
+                        {record.status === 'absent' ? (
+                          <td colSpan={2} className="py-4 font-bold text-sm text-[#FF6B6B] pr-4 text-center">
+                            Absent
+                          </td>
+                        ) : (
+                          <>
+                            <td className="py-4 font-bold text-sm text-[#4ECDC4] pr-4">
+                              <div className="flex items-center gap-2">
+                                {record.clockIn ? format(new Date(record.clockIn), 'h:mm a') : '—'}
+                                {record.clockInPhoto && (
+                                  <button onClick={() => setPreviewPhoto(record.clockInPhoto!)} className="text-[#A0AEC0] hover:text-[#4ECDC4]">
+                                    <Camera className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 font-bold text-sm text-[#FF6B6B] pr-4">
+                              <div className="flex items-center gap-2">
+                                {record.clockOut ? format(new Date(record.clockOut), 'h:mm a') : '—'}
+                                {record.clockOutPhoto && (
+                                  <button onClick={() => setPreviewPhoto(record.clockOutPhoto!)} className="text-[#A0AEC0] hover:text-[#FF6B6B]">
+                                    <Camera className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </>
+                        )}
                         <td className="py-4 flex justify-end gap-2 min-w-[100px]">
                           <button onClick={() => startEditing(record)} className="p-2 text-gray-500 hover:text-blue-500 bg-white hover:bg-blue-50 rounded-xl transition-colors shadow-sm">
                             <Edit3 className="w-4 h-4" />
@@ -763,6 +916,93 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         </div>
       </main>
 
+      {/* Add Past Record Modal */}
+      {isAddingRecord && selectedEmployeeData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-black text-[#2D3436]">Add Past Record</h3>
+              <button onClick={() => setIsAddingRecord(false)} className="text-gray-400 hover:text-gray-900 transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddRecord} className="space-y-4 mb-8">
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Employee</label>
+                <input type="text" disabled value={selectedEmployeeData.name} className="w-full bg-gray-50 rounded-xl p-3 border border-gray-200 text-gray-500 font-medium" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Date</label>
+                <input 
+                  type="date" 
+                  value={addRecordDate} 
+                  required
+                  onChange={e => setAddRecordDate(e.target.value)}
+                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Status</label>
+                <select 
+                  value={addRecordStatus}
+                  onChange={e => setAddRecordStatus(e.target.value as any)}
+                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                >
+                  <option value="present">Present</option>
+                  <option value="absent">Absent</option>
+                </select>
+              </div>
+              
+              {addRecordStatus !== 'absent' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Clock In Time</label>
+                    <input 
+                      type="time" 
+                      required
+                      value={addRecordClockIn} 
+                      onChange={e => setAddRecordClockIn(e.target.value)}
+                      className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Clock Out Time (Optional)</label>
+                    <input 
+                      type="time" 
+                      value={addRecordClockOut} 
+                      onChange={e => setAddRecordClockOut(e.target.value)}
+                      className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-3 mt-8">
+                <button 
+                  type="button"
+                  onClick={() => setIsAddingRecord(false)}
+                  className="px-6 py-3 font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={isSaving}
+                  type="submit"
+                  className="flex items-center gap-2 px-8 py-3 bg-[#F9D423] text-[#8B6E00] font-black rounded-full hover:bg-[#F1C40F] transition-colors shadow-sm disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSaving ? 'Saving...' : 'Add'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Editing Modal */}
       {editingRecord && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -781,24 +1021,40 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
               </div>
               
               <div>
-                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Clock In</label>
-                <input 
-                  type="datetime-local" 
-                  value={editClockIn} 
-                  onChange={e => setEditClockIn(e.target.value)}
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Status</label>
+                <select 
+                  value={editStatus}
+                  onChange={e => setEditStatus(e.target.value as any)}
                   className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
-                />
+                >
+                  <option value="present">Present</option>
+                  <option value="absent">Absent</option>
+                </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Clock Out</label>
-                <input 
-                  type="datetime-local" 
-                  value={editClockOut} 
-                  onChange={e => setEditClockOut(e.target.value)}
-                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
-                />
-              </div>
+              {editStatus !== 'absent' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Clock In</label>
+                    <input 
+                      type="datetime-local" 
+                      value={editClockIn} 
+                      onChange={e => setEditClockIn(e.target.value)}
+                      className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Clock Out</label>
+                    <input 
+                      type="datetime-local" 
+                      value={editClockOut} 
+                      onChange={e => setEditClockOut(e.target.value)}
+                      className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex justify-end gap-3">

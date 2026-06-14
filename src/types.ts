@@ -3,10 +3,11 @@ export interface AttendanceRecord {
   userId: string;
   employeeName: string;
   date: string;
-  clockIn: string;
+  clockIn?: string;
   clockOut?: string;
   clockInPhoto?: string;
   clockOutPhoto?: string;
+  status?: 'present' | 'absent' | 'half-day';
 }
 
 export enum OperationType {

@@ -52,7 +52,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     const attendedDates = new Set();
     allRecords.forEach(r => {
       const rDate = new Date(r.date);
-      if (rDate >= cycleStartObj && rDate <= now) {
+      if (rDate >= cycleStartObj && rDate <= now && r.status !== 'absent') {
         attendedDates.add(r.date);
       }
     });
@@ -134,16 +134,9 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     return () => clearInterval(timer);
   }, [todayRecord]);
 
-  // Connection test + Real-time Firestore sync
+  // Real-time Firestore sync
   useEffect(() => {
     if (!activeUserId) return;
-
-    // Test connection first
-    getDocFromServer(doc(db, 'attendance', 'connection-test')).catch(error => {
-      if(error instanceof Error && error.message.includes('the client is offline')) {
-        console.error("Please check your Firebase configuration.");
-      }
-    });
 
     const q = query(
       collection(db, 'attendance'),
@@ -178,6 +171,8 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
 
   // Fetch shop config and user profile
   useEffect(() => {
+    let unsubscribeUser: () => void;
+    
     const fetchData = async () => {
       try {
         const docSnap = await getDocFromServer(doc(db, 'system', 'config'));
@@ -187,22 +182,23 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
       } catch (err) {
         console.error("Failed to load shop config", err);
       }
-
-      if (localUser) {
-        setUserData(localUser);
-      } else if (activeUserId) {
-        try {
-          const userSnap = await getDocFromServer(doc(db, 'users', activeUserId));
-          if (userSnap.exists()) {
-            setUserData(userSnap.data());
-          }
-        } catch (err) {
-          console.error("Failed to load user profile", err);
-        }
-      }
     };
     fetchData();
-  }, [activeUserId, localUser]);
+
+    if (activeUserId) {
+      unsubscribeUser = onSnapshot(doc(db, 'users', activeUserId), (docSnap) => {
+        if (docSnap.exists()) {
+          setUserData(docSnap.data());
+        }
+      }, (err) => {
+        console.error("Failed to load user profile", err);
+      });
+    }
+    
+    return () => {
+      if (unsubscribeUser) unsubscribeUser();
+    };
+  }, [activeUserId]);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371e3; // metres
@@ -522,27 +518,33 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
                 recentRecords.map(record => (
                   <div key={record.id} className="flex items-center justify-between border-b-2 border-[#FFFCF0] pb-4">
                     <div className="flex flex-col gap-1">
-                      <p className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockIn), 'MMM d, yyyy')}</p>
+                      <p className="font-bold text-sm text-[#2D3436]">{record.date ? format(new Date(record.date), 'MMM d, yyyy') : record.clockIn ? format(new Date(record.clockIn), 'MMM d, yyyy') : '—'}</p>
                       <p className="text-xs font-bold text-[#A0AEC0] uppercase">{record.employeeName}</p>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-4">
-                      <div className="flex flex-col items-end">
-                        <span className="text-[10px] font-black text-[#A0AEC0] uppercase tracking-wider">In</span>
-                        <div className="flex items-center gap-1">
-                          <span className="w-2 h-2 bg-[#4ECDC4] rounded-full"></span>
-                          <span className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockIn), 'h:mm a')}</span>
-                        </div>
+                    {record.status === 'absent' ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-sm text-[#FF6B6B] uppercase tracking-wider">Absent</span>
                       </div>
-                      {record.clockOut && (
-                        <div className="flex flex-col items-end pl-2 sm:pl-4 border-l-2 border-[#FFFCF0]">
-                          <span className="text-[10px] font-black text-[#A0AEC0] uppercase tracking-wider">Out</span>
+                    ) : (
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] font-black text-[#A0AEC0] uppercase tracking-wider">In</span>
                           <div className="flex items-center gap-1">
-                            <span className="w-2 h-2 bg-[#FF6B6B] rounded-full"></span>
-                            <span className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                            <span className="w-2 h-2 bg-[#4ECDC4] rounded-full"></span>
+                            <span className="font-bold text-sm text-[#2D3436]">{record.clockIn ? format(new Date(record.clockIn), 'h:mm a') : '—'}</span>
                           </div>
                         </div>
-                      )}
-                    </div>
+                        {record.clockOut && (
+                          <div className="flex flex-col items-end pl-2 sm:pl-4 border-l-2 border-[#FFFCF0]">
+                            <span className="text-[10px] font-black text-[#A0AEC0] uppercase tracking-wider">Out</span>
+                            <div className="flex items-center gap-1">
+                              <span className="w-2 h-2 bg-[#FF6B6B] rounded-full"></span>
+                              <span className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -563,20 +565,26 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
                 recentRecords.map(record => (
                   <div key={record.id} className="flex items-center justify-between border-b-2 border-[#FFFCF0] pb-4">
                     <div className="flex flex-col gap-1">
-                      <p className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockIn), 'MMM d, yyyy')}</p>
+                      <p className="font-bold text-sm text-[#2D3436]">{record.date ? format(new Date(record.date), 'MMM d, yyyy') : record.clockIn ? format(new Date(record.clockIn), 'MMM d, yyyy') : '—'}</p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                       <div className="flex items-center gap-1">
-                          <span className="w-2 h-2 bg-[#4ECDC4] rounded-full"></span>
-                          <span className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockIn), 'h:mm a')}</span>
-                       </div>
-                       {record.clockOut && (
+                    {record.status === 'absent' ? (
+                      <div className="flex items-center gap-1">
+                        <span className="font-black text-sm text-[#FF6B6B] uppercase tracking-wider">Absent</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-end gap-1">
                          <div className="flex items-center gap-1">
-                            <span className="w-2 h-2 bg-[#FF6B6B] rounded-full"></span>
-                            <span className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                            <span className="w-2 h-2 bg-[#4ECDC4] rounded-full"></span>
+                            <span className="font-bold text-sm text-[#2D3436]">{record.clockIn ? format(new Date(record.clockIn), 'h:mm a') : '—'}</span>
                          </div>
-                       )}
-                    </div>
+                         {record.clockOut && (
+                           <div className="flex items-center gap-1">
+                              <span className="w-2 h-2 bg-[#FF6B6B] rounded-full"></span>
+                              <span className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                           </div>
+                         )}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
