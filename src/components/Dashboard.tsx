@@ -466,7 +466,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
               )}
               {!isClockedIn ? (
                 <button
-                  onClick={() => setCameraMode('in')}
+                  onClick={() => processClockIn('')}
                   className="w-full py-6 sm:py-8 bg-[#FF6B6B] hover:bg-[#FF5252] text-white rounded-[32px] text-2xl sm:text-3xl font-black shadow-[0_8px_0_0_#EE5253] active:translate-y-1 active:shadow-none transition-all"
                 >
                   CLOCK IN NOW
@@ -687,7 +687,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
               <button 
                 onClick={() => {
                   setConfirmClockOut(false);
-                  setCameraMode('out');
+                  processClockOut('');
                 }}
                 className="flex-1 py-3 bg-[#F9D423] hover:bg-[#F1C40F] text-[#8B6E00] rounded-xl font-black transition-colors"
               >
