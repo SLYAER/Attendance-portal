@@ -17,12 +17,12 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [failedAttempts, setFailedAttempts] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
-  const [editStatus, setEditStatus] = useState<'present' | 'absent'>('present');
+  const [editStatus, setEditStatus] = useState<'present' | 'absent' | 'half-day'>('present');
   const [editClockIn, setEditClockIn] = useState('');
   const [editClockOut, setEditClockOut] = useState('');
   const [isAddingRecord, setIsAddingRecord] = useState(false);
   const [addRecordDate, setAddRecordDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
-  const [addRecordStatus, setAddRecordStatus] = useState<'present' | 'absent'>('present');
+  const [addRecordStatus, setAddRecordStatus] = useState<'present' | 'absent' | 'half-day'>('present');
   const [addRecordClockIn, setAddRecordClockIn] = useState('09:00');
   const [addRecordClockOut, setAddRecordClockOut] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -249,7 +249,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       const rDate = new Date(r.date);
       if (rDate >= cycleStartObj && rDate < cycleEndObj) {
         if (r.status === 'absent') {
-          absents++;
+          absents += 1;
+        } else if (r.status === 'half-day') {
+          absents += 0.5;
+          attendedDates.add(r.date);
         } else {
           attendedDates.add(r.date);
         }
@@ -315,7 +318,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
 
   const startEditing = (record: AttendanceRecord) => {
     setEditingRecord(record);
-    setEditStatus((record.status as 'present' | 'absent') || 'present');
+    setEditStatus((record.status as 'present' | 'absent' | 'half-day') || 'present');
     // Format dates for datetime-local input
     setEditClockIn(record.clockIn ? formatForInput(record.clockIn) : '');
     setEditClockOut(record.clockOut ? formatForInput(record.clockOut) : '');
@@ -345,7 +348,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         status: addRecordStatus,
       };
       
-      if (addRecordStatus === 'present') {
+      if (addRecordStatus === 'present' || addRecordStatus === 'half-day') {
         const clockInDate = new Date(`${addRecordDate}T${addRecordClockIn}`);
         payload.clockIn = clockInDate.toISOString();
         if (addRecordClockOut) {
@@ -373,7 +376,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const handleSave = async () => {
     if (!editingRecord || !editingRecord.id) return;
     
-    if (editStatus === 'present' && !editClockIn) {
+    if ((editStatus === 'present' || editStatus === 'half-day') && !editClockIn) {
       showToast('Please specify a valid Clock In time', 'error');
       return;
     }
@@ -381,7 +384,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     setIsSaving(true);
     try {
       const payload: any = { status: editStatus };
-      if (editStatus === 'present') {
+      if (editStatus === 'present' || editStatus === 'half-day') {
         const updatedClockIn = new Date(editClockIn).toISOString();
         const updatedClockOut = editClockOut ? new Date(editClockOut).toISOString() : undefined;
         payload.clockIn = updatedClockIn;
@@ -663,6 +666,25 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                     <div className="flex justify-between items-center mt-1">
                       <span className="text-sm font-black text-[#FF6B6B] uppercase">Absent</span>
                     </div>
+                  ) : record.status === 'half-day' ? (
+                    <div className="flex justify-between items-center mt-1">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black text-[#FFB020] uppercase">Half Day</span>
+                        <div className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-[#FFB020] rounded-full"></span>
+                          <span className="text-sm font-bold text-[#2D3436]">{record.clockIn ? format(new Date(record.clockIn), 'h:mm a') : '—'}</span>
+                        </div>
+                      </div>
+                      {record.clockOut && (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] font-black text-[#A0AEC0] uppercase">Out</span>
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-[#FF6B6B] rounded-full"></span>
+                            <span className="text-sm font-bold text-[#2D3436]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex justify-between items-center mt-1">
                       <div className="flex items-center gap-2">
@@ -776,7 +798,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                         <span className="text-xl font-black text-[#4ECDC4]">₹{selectedEmployeeSalary.remainingSalary.toLocaleString()}</span>
                       </div>
                       <div className="border-l-2 border-gray-200 pl-4">
-                        <span className="block text-[10px] font-black uppercase text-[#A0AEC0]">Deductions ({selectedEmployeeSalary.absent} Absent)</span>
+                        <span className="block text-[10px] font-black uppercase text-[#A0AEC0]">Deductions ({selectedEmployeeSalary.absent} Days Absent)</span>
                         <span className="text-xl font-black text-[#FF6B6B]">₹{selectedEmployeeSalary.deductions.toLocaleString()}</span>
                       </div>
                       <div className="border-l-2 border-gray-200 pl-4">
@@ -862,9 +884,17 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                       <tr key={record.id} className="border-b-2 border-[#FFFCF0] hover:bg-[#FFFCF0] transition-colors">
                         <td className="py-4 font-bold text-sm text-[#2D3436] pr-4">{record.date ? format(new Date(record.date), 'MMM d, yyyy') : record.clockIn ? format(new Date(record.clockIn), 'MMM d, yyyy') : '—'}</td>
                         {record.status === 'absent' ? (
-                          <td colSpan={2} className="py-4 font-bold text-sm text-[#FF6B6B] pr-4 text-center">
+                          <td colSpan={2} className="py-4 font-bold text-sm text-[#FF6B6B] pr-4 text-center uppercase">
                             Absent
                           </td>
+                        ) : record.status === 'half-day' ? (
+                          <>
+                            <td className="py-4 font-bold text-sm text-[#2D3436] pr-4">
+                              <span className="text-[10px] font-black text-[#FFB020] uppercase block mb-1">Half Day</span>
+                              {record.clockIn ? format(new Date(record.clockIn), 'h:mm a') : '—'}
+                            </td>
+                            <td className="py-4 font-bold text-sm text-[#2D3436] pr-4">{record.clockOut ? format(new Date(record.clockOut), 'h:mm a') : '—'}</td>
+                          </>
                         ) : (
                           <>
                             <td className="py-4 font-bold text-sm text-[#4ECDC4] pr-4">
@@ -949,6 +979,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
                 >
                   <option value="present">Present</option>
+                  <option value="half-day">Half Day</option>
                   <option value="absent">Absent</option>
                 </select>
               </div>
@@ -1025,6 +1056,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
                 >
                   <option value="present">Present</option>
+                  <option value="half-day">Half Day</option>
                   <option value="absent">Absent</option>
                 </select>
               </div>

@@ -39,8 +39,8 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.length < 4) {
-      setPinError('Enter at least 4 characters');
+    if (pin.length !== 4) {
+      setPinError('Enter exactly 4 digits');
       return;
     }
 
@@ -169,7 +169,8 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
               <input 
                 type="password"
                 value={pin}
-                onChange={e => setPin(e.target.value)}
+                maxLength={4}
+                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                 placeholder="••••"
                 className="w-full text-center text-4xl sm:text-5xl font-black tracking-[1em] text-[#2D3436] bg-[#FFFCF0] border-4 border-[#FFEAA7] rounded-3xl py-6 outline-none focus:border-[#F9D423] transition-colors placeholder:text-gray-300 pl-[1em]"
                 autoFocus
@@ -179,7 +180,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
 
             <button
               type="submit"
-              disabled={isVerifying || pin.length < 4}
+              disabled={isVerifying || pin.length !== 4}
               className="w-full py-5 bg-[#4ECDC4] hover:bg-[#26C6DA] text-white font-black text-xl rounded-2xl shadow-[0_6px_0_0_#26A69A] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isVerifying ? 'VERIFYING...' : (

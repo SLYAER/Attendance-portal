@@ -56,7 +56,10 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
       // We count all absents in the cycle (even if in future of cycle)
       if (rDate >= cycleStartObj && rDate < cycleEndObj) {
         if (r.status === 'absent') {
-          absents++;
+          absents += 1;
+        } else if (r.status === 'half-day') {
+          absents += 0.5;
+          attendedDates.add(r.date);
         } else {
           attendedDates.add(r.date);
         }
@@ -511,7 +514,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
                   </div>
                   <div className="text-center">
                     <span className="block text-2xl font-black text-[#FF6B6B]">{salaryData.absent}</span>
-                    <span className="text-[10px] font-black uppercase text-[#A0AEC0]">Absent</span>
+                    <span className="text-[10px] font-black uppercase text-[#A0AEC0]">Days Absent</span>
                   </div>
                 </div>
               </div>
@@ -539,6 +542,30 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
                     {record.status === 'absent' ? (
                       <div className="flex items-center gap-2">
                         <span className="font-black text-sm text-[#FF6B6B] uppercase tracking-wider">Absent</span>
+                      </div>
+                    ) : record.status === 'half-day' ? (
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-sm text-[#FFB020] uppercase tracking-wider">Half Day</span>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-4 mt-1">
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] font-black text-[#A0AEC0] uppercase tracking-wider">In</span>
+                            <div className="flex items-center gap-1">
+                              <span className="w-2 h-2 bg-[#FFB020] rounded-full"></span>
+                              <span className="font-bold text-sm text-[#2D3436]">{record.clockIn ? format(new Date(record.clockIn), 'h:mm a') : '—'}</span>
+                            </div>
+                          </div>
+                          {record.clockOut && (
+                            <div className="flex flex-col items-end pl-2 sm:pl-4 border-l-2 border-[#FFFCF0]">
+                              <span className="text-[10px] font-black text-[#A0AEC0] uppercase tracking-wider">Out</span>
+                              <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 bg-[#FF6B6B] rounded-full"></span>
+                                <span className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 sm:gap-4">
@@ -585,6 +612,22 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
                     {record.status === 'absent' ? (
                       <div className="flex items-center gap-1">
                         <span className="font-black text-sm text-[#FF6B6B] uppercase tracking-wider">Absent</span>
+                      </div>
+                    ) : record.status === 'half-day' ? (
+                      <div className="flex flex-col items-end gap-1">
+                         <div className="flex items-center gap-2 mb-1">
+                            <span className="font-black text-sm text-[#FFB020] uppercase tracking-wider">Half Day</span>
+                         </div>
+                         <div className="flex items-center gap-1">
+                            <span className="w-2 h-2 bg-[#FFB020] rounded-full"></span>
+                            <span className="font-bold text-sm text-[#2D3436]">{record.clockIn ? format(new Date(record.clockIn), 'h:mm a') : '—'}</span>
+                         </div>
+                         {record.clockOut && (
+                           <div className="flex items-center gap-1">
+                              <span className="w-2 h-2 bg-[#FF6B6B] rounded-full"></span>
+                              <span className="font-bold text-sm text-[#2D3436]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                           </div>
+                         )}
                       </div>
                     ) : (
                       <div className="flex flex-col items-end gap-1">
