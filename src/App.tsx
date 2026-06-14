@@ -15,7 +15,9 @@ const ADMIN_NUMBERS = ['+919592838651', '+919888696542', '9592838651', '98886965
 export default function App() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdminView, setIsAdminView] = useState(false);
+  const [isAdminView, setIsAdminView] = useState(() => {
+    return localStorage.getItem('isAdminLoggedIn') === 'true';
+  });
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -54,13 +56,17 @@ export default function App() {
       setShowPasswordPrompt(false);
       setPasswordInput('');
       setIsAdminView(true);
+      localStorage.setItem('isAdminLoggedIn', 'true');
     } else {
       setPasswordError('Incorrect password');
     }
   };
 
   if (isAdminView) {
-    return <AdminPanel onBack={() => setIsAdminView(false)} />;
+    return <AdminPanel onBack={() => {
+      setIsAdminView(false);
+      localStorage.removeItem('isAdminLoggedIn');
+    }} />;
   }
 
   return (

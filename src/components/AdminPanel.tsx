@@ -83,18 +83,28 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     try {
       const q = query(collection(db, 'users'));
       const snapshot = await getDocs(q);
-      const newCodes: Record<string, string> = {};
+      const newCodes: Record<string, string> = { ...dailyCodes };
+      let changes = 0;
       
       snapshot.forEach(userDoc => {
-        // Generate 4 digit code
-        const code = Math.floor(1000 + Math.random() * 9000).toString();
-        newCodes[userDoc.id] = code;
+        // Generate 4 digit code only if not existing
+        if (!newCodes[userDoc.id]) {
+          const code = Math.floor(1000 + Math.random() * 9000).toString();
+          newCodes[userDoc.id] = code;
+          changes++;
+        }
       });
+
+      if (changes === 0) {
+        showToast("All users already have codes for today!");
+        setGeneratingCodes(false);
+        return;
+      }
 
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       await setDoc(doc(db, 'daily_codes', todayStr), newCodes);
       setDailyCodes(newCodes);
-      showToast("Codes generated successfully!");
+      showToast(`Generated codes for ${changes} users!`);
     } catch (e) {
       console.error(e);
       showToast("Failed to generate codes", "error");
@@ -439,7 +449,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   className={`${confirmGenerate ? 'bg-[#FF6B6B] hover:bg-[#FF5252]' : 'bg-[#2D3436] hover:bg-[#1A202C]'} text-white font-black px-6 py-3 rounded-2xl shadow-md transition-colors disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base self-start sm:self-auto`}
                 >
                   <KeyRound className="w-5 h-5" />
-                  {generatingCodes ? "Generating..." : confirmGenerate ? "Confirm Generate?" : "Generate Today's Codes"}
+                  {generatingCodes ? "Generating..." : confirmGenerate ? "Confirm?" : "Generate Missing Codes"}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
