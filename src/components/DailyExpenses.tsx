@@ -21,6 +21,7 @@ export default function DailyExpenses({ onClose }: { onClose: () => void }) {
   const [employeeName, setEmployeeName] = useState('');
   const [category, setCategory] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     // Fetch employees
@@ -61,14 +62,26 @@ export default function DailyExpenses({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !employeeName || !description || !category) return;
+    setErrorMsg('');
+    if (!employeeName) {
+      setErrorMsg('Please select an employee.');
+      return;
+    }
+    if (!category) {
+      setErrorMsg('Please select a category.');
+      return;
+    }
+    if (!amount) {
+      setErrorMsg('Please fill out all required fields.');
+      return;
+    }
     
     setLoading(true);
     try {
       const now = new Date();
       await addDoc(collection(db, 'expenses'), {
         amount: parseFloat(amount),
-        description,
+        description: description || '',
         employeeName,
         category,
         date: format(now, 'yyyy-MM-dd'),
@@ -77,15 +90,16 @@ export default function DailyExpenses({ onClose }: { onClose: () => void }) {
       setAmount('');
       setDescription('');
       setCategory('');
-    } catch (e) {
+      setEmployeeName('');
+    } catch (e: any) {
       console.error(e);
-      alert('Failed to add expense');
+      setErrorMsg('Failed to add expense: ' + (e.message || 'Unknown error'));
     }
     setLoading(false);
   };
 
   return (
-    <div className="fixed inset-0 z-[11000] bg-black p-4 md:p-8 flex items-center justify-center animate-in fade-in zoom-in duration-500 pb-20 overflow-y-auto">
+    <div id="daily-expenses-modal" className="fixed inset-0 z-[11000] bg-black p-4 md:p-8 flex items-center justify-center animate-in fade-in zoom-in duration-500 pb-20 overflow-y-auto">
       <div className="bg-[#FFFCF0] text-[#2D3436] w-full max-w-2xl rounded-3xl shadow-2xl p-6 md:p-10 relative mt-32">
         <button 
           onClick={onClose}
@@ -106,6 +120,11 @@ export default function DailyExpenses({ onClose }: { onClose: () => void }) {
 
         <form onSubmit={handleSubmit} className="mb-10 space-y-4 bg-white p-6 rounded-2xl border-2 border-gray-100">
           <h2 className="text-xl font-bold tracking-tight mb-4">Add New Expense</h2>
+          {errorMsg && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-bold border border-red-200">
+              {errorMsg}
+            </div>
+          )}
           <div>
             <label className="block text-xs font-bold text-[#A0AEC0] uppercase tracking-widest mb-1">Employee Name</label>
             <select
@@ -156,8 +175,7 @@ export default function DailyExpenses({ onClose }: { onClose: () => void }) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 font-bold focus:border-[#4ECDC4] outline-none"
-              placeholder="What was it for?"
-              required
+              placeholder="What was it for? (Optional)"
             />
           </div>
           <button 

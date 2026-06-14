@@ -22,7 +22,6 @@ export default function App() {
 
   const [showIdleOverlay, setShowIdleOverlay] = useState(false);
   const [showClockOutAlarm, setShowClockOutAlarm] = useState(false);
-  const [showBatterySaver, setShowBatterySaver] = useState(false);
   const [showExpenses, setShowExpenses] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -47,10 +46,10 @@ export default function App() {
     let batteryManager: any = null;
     const updateBatteryStatus = () => {
       if (batteryManager) {
-        if (!batteryManager.charging && batteryManager.level <= 0.20) {
-          setShowBatterySaver(true);
+        if (!batteryManager.charging) {
+          document.documentElement.classList.add('power-saving-mode');
         } else {
-          setShowBatterySaver(false);
+          document.documentElement.classList.remove('power-saving-mode');
         }
       }
     };
@@ -132,12 +131,13 @@ export default function App() {
     
     const startHold = (e: MouseEvent | TouchEvent) => {
       if ((e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('button')) return;
+      if (document.getElementById('daily-expenses-modal')) return;
       isHolding = true;
       let progress = 0;
       setHoldProgress(0);
       
       progressTimer = setInterval(() => {
-        progress += 1;
+        progress += 2; // 2% every 100ms means 100% in 5000ms
         setHoldProgress(progress);
       }, 100);
 
@@ -146,7 +146,7 @@ export default function App() {
         setHoldProgress(0);
         isHolding = false;
         setShowExpenses(true);
-      }, 10000); // 10s
+      }, 5000); // 5s
     };
 
     const cancelHold = () => {
@@ -281,18 +281,6 @@ export default function App() {
         </div>
       )}
 
-      {showBatterySaver && (
-        <div 
-          className="fixed inset-0 bg-black z-[10001] flex items-center justify-center"
-        >
-          <div className="text-center px-4" onClick={() => setShowBatterySaver(false)}>
-            <div className="text-[#A0AEC0]/30 font-mono text-sm tracking-[0.5em] uppercase border border-[#A0AEC0]/20 py-2 px-6 rounded-full inline-block">
-              POWER SAVING MODE
-            </div>
-          </div>
-        </div>
-      )}
-
       {holdProgress > 0 && holdProgress <= 100 && (
         <div className="fixed inset-0 z-[12000] pointer-events-none flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative flex items-center justify-center">
@@ -321,7 +309,7 @@ export default function App() {
               />
             </svg>
             <div className="absolute font-black text-4xl text-white drop-shadow-xl animate-pulse flex flex-col items-center">
-              <span>{Math.round(10 - (holdProgress/10))}s</span>
+              <span>{Math.max(0, Math.ceil(5 - (holdProgress/20)))}s</span>
             </div>
           </div>
         </div>

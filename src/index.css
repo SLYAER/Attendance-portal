@@ -18,3 +18,13 @@ input, textarea {
   -ms-user-select: auto;
   user-select: auto;
 }
+
+html.power-saving-mode {
+  filter: invert(1) hue-rotate(180deg);
+  background-color: #fff;
+}
+
+html.power-saving-mode img,
+html.power-saving-mode video {
+  filter: invert(1) hue-rotate(180deg);
+}
