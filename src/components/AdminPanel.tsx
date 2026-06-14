@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, orderBy, limit, getDocs, doc, updateDoc, deleteDoc, deleteField, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AttendanceRecord } from '../types';
-import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera } from 'lucide-react';
+import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -30,12 +30,23 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmpPhone, setNewEmpPhone] = useState('');
+  const [newEmpSalary, setNewEmpSalary] = useState('');
+  const [newEmpJoinDate, setNewEmpJoinDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [isAddingEmp, setIsAddingEmp] = useState(false);
+  
+  const [editEmpId, setEditEmpId] = useState<string | null>(null);
+  const [editEmpName, setEditEmpName] = useState('');
+  const [editEmpPhone, setEditEmpPhone] = useState('');
+  const [editEmpSalary, setEditEmpSalary] = useState('');
+  const [editEmpJoinDate, setEditEmpJoinDate] = useState('');
+  const [isEditingEmp, setIsEditingEmp] = useState(false);
   
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editAdvanceInput, setEditAdvanceInput] = useState('');
+  const [isEditingAdvance, setIsEditingAdvance] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -186,7 +197,11 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     
     // First, initialize all users from `allUsers` array so they always show up
     allUsers.forEach(user => {
-      map.set(user.id, { name: user.name || 'Unknown', records: [] });
+      map.set(user.id, { 
+        name: user.name || 'Unknown', 
+        records: [],
+        ...user // include other properties like joinDate, monthlySalary, advanceTaken, phoneNumber
+      });
     });
 
     records.forEach(r => {
@@ -294,6 +309,9 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         uid: userId,
         name: newEmpName,
         phoneNumber: fullPhoneNumber,
+        monthlySalary: Number(newEmpSalary) || 0,
+        joinDate: newEmpJoinDate,
+        advanceTaken: 0,
         photoBase64: '',
         role: 'employee',
         createdAt: new Date().toISOString()
@@ -315,6 +333,8 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       setShowAddEmployee(false);
       setNewEmpName('');
       setNewEmpPhone('');
+      setNewEmpSalary('');
+      setNewEmpJoinDate(format(new Date(), 'yyyy-MM-dd'));
       showToast("Employee added successfully!");
       fetchUsers(); // Refresh the list
     } catch (err) {
@@ -322,6 +342,52 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       showToast("Failed to add employee", "error");
     } finally {
       setIsAddingEmp(false);
+    }
+  };
+
+  const handleEditEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editEmpId || !editEmpName || editEmpPhone.length < 10) return;
+    setIsEditingEmp(true);
+    try {
+      const fullPhoneNumber = editEmpPhone.startsWith('+91') 
+          ? editEmpPhone 
+          : `+91${editEmpPhone}`;
+
+      await updateDoc(doc(db, 'users', editEmpId), {
+        name: editEmpName,
+        phoneNumber: fullPhoneNumber,
+        monthlySalary: Number(editEmpSalary) || 0,
+        joinDate: editEmpJoinDate,
+      });
+      
+      setEditEmpId(null);
+      showToast("Employee profile updated!");
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update employee", "error");
+    } finally {
+      setIsEditingEmp(false);
+    }
+  };
+
+  const openEditModal = (emp: any) => {
+    setEditEmpId(emp.id);
+    setEditEmpName(emp.name || '');
+    setEditEmpPhone(emp.phoneNumber ? emp.phoneNumber.replace('+91', '') : '');
+    setEditEmpSalary(emp.monthlySalary?.toString() || '');
+    setEditEmpJoinDate(emp.joinDate || format(new Date(), 'yyyy-MM-dd'));
+  };
+
+  const handleUpdateAdvance = async (userId: string, advance: number) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { advanceTaken: advance });
+      fetchUsers();
+      showToast("Advance updated!");
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update advance", "error");
     }
   };
 
@@ -570,9 +636,72 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                 >
                   <ArrowLeft className="w-6 h-6" />
                 </button>
-                <div>
-                  <h2 className="text-3xl font-black uppercase tracking-wider text-[#2D3436]">{selectedEmployeeData?.name}</h2>
-                  <p className="text-sm font-bold text-[#A0AEC0]">Attendance History</p>
+                <div className="flex-1 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-4 mb-1">
+                      <h2 className="text-3xl font-black uppercase tracking-wider text-[#2D3436]">{selectedEmployeeData?.name}</h2>
+                      <button 
+                        onClick={() => selectedEmployeeData && openEditModal(selectedEmployeeData)}
+                        className="text-[#A0AEC0] hover:text-[#4ECDC4] transition-colors"
+                      >
+                        <Edit3 className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <p className="text-sm font-bold text-[#A0AEC0]">
+                      Join Date: <span className="text-[#2D3436]">{selectedEmployeeData?.joinDate ? format(new Date(selectedEmployeeData.joinDate), 'PP') : 'N/A'}</span>
+                      {' • '}Monthly Salary: <span className="text-[#2D3436]">₹{selectedEmployeeData?.monthlySalary?.toLocaleString() || 0}</span>
+                    </p>
+                  </div>
+                  
+                  <div className="bg-[#FFFCF0] rounded-2xl p-4 border-2 border-[#FFEAA7] flex items-center gap-4">
+                    <div>
+                      <span className="block text-[10px] font-black uppercase text-[#A0AEC0]">Advance Taken</span>
+                      {isEditingAdvance ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <input 
+                            type="number" 
+                            className="bg-white border-2 border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-[#4ECDC4] w-24 text-sm font-bold text-[#2D3436]"
+                            value={editAdvanceInput}
+                            onChange={e => setEditAdvanceInput(e.target.value)}
+                            placeholder="Amount"
+                          />
+                          <button 
+                            onClick={async () => {
+                              const amount = Number(editAdvanceInput);
+                              if (!isNaN(amount) && selectedUserId) {
+                                await handleUpdateAdvance(selectedUserId, amount);
+                                setIsEditingAdvance(false);
+                              }
+                            }}
+                            className="text-[#4ECDC4] bg-white p-1 rounded-md shadow-sm border border-gray-200"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => setIsEditingAdvance(false)}
+                            className="text-[#FF6B6B] bg-white p-1 rounded-md shadow-sm border border-gray-200"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-lg font-black text-[#2D3436]">
+                            ₹{selectedEmployeeData?.advanceTaken?.toLocaleString() || 0}
+                          </span>
+                          <button 
+                            onClick={() => {
+                              setEditAdvanceInput(selectedEmployeeData?.advanceTaken?.toString() || '0');
+                              setIsEditingAdvance(true);
+                            }}
+                            className="text-[#A0AEC0] hover:text-[#4ECDC4] transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -734,6 +863,35 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Monthly Salary</label>
+                <div className="flex">
+                  <span className="flex items-center justify-center bg-[#F0FFF4] border-2 border-r-0 border-gray-200 rounded-l-xl px-4 text-sm font-bold text-[#2D3436]">
+                    ₹
+                  </span>
+                  <input 
+                    type="number" 
+                    value={newEmpSalary}
+                    onChange={e => setNewEmpSalary(e.target.value)}
+                    placeholder="25000"
+                    required
+                    min="0"
+                    className="w-full bg-white rounded-r-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Join Date (Start Date)</label>
+                <input 
+                  type="date" 
+                  value={newEmpJoinDate}
+                  onChange={e => setNewEmpJoinDate(e.target.value)}
+                  required
+                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                />
+              </div>
+
               <div className="flex justify-end gap-3 mt-8">
                 <button 
                   type="button"
@@ -749,6 +907,96 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                 >
                   <Users className="w-4 h-4" />
                   {isAddingEmp ? 'Adding...' : 'Add Employee'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Employee Modal */}
+      {editEmpId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-black text-[#2D3436]">Edit Profile</h3>
+              <button onClick={() => setEditEmpId(null)} className="text-gray-400 hover:text-gray-900 transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditEmployee} className="space-y-4 mb-8">
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Full Name</label>
+                <input 
+                  type="text" 
+                  value={editEmpName}
+                  onChange={e => setEditEmpName(e.target.value)}
+                  required
+                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Phone Number</label>
+                <div className="flex">
+                  <span className="flex items-center justify-center bg-[#F0FFF4] border-2 border-r-0 border-gray-200 rounded-l-xl px-4 text-sm font-bold text-[#2D3436]">
+                    +91
+                  </span>
+                  <input 
+                    type="tel" 
+                    value={editEmpPhone}
+                    onChange={e => setEditEmpPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    required
+                    maxLength={10}
+                    className="w-full bg-white rounded-r-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Monthly Salary</label>
+                <div className="flex">
+                  <span className="flex items-center justify-center bg-[#F0FFF4] border-2 border-r-0 border-gray-200 rounded-l-xl px-4 text-sm font-bold text-[#2D3436]">
+                    ₹
+                  </span>
+                  <input 
+                    type="number" 
+                    value={editEmpSalary}
+                    onChange={e => setEditEmpSalary(e.target.value)}
+                    required
+                    min="0"
+                    className="w-full bg-white rounded-r-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-[#A0AEC0] mb-2 uppercase">Join Date (Start Date)</label>
+                <input 
+                  type="date" 
+                  value={editEmpJoinDate}
+                  onChange={e => setEditEmpJoinDate(e.target.value)}
+                  required
+                  className="w-full bg-white rounded-xl p-3 border-2 border-gray-200 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] transition-colors"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-8">
+                <button 
+                  type="button"
+                  onClick={() => setEditEmpId(null)}
+                  className="px-6 py-3 font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isEditingEmp || editEmpPhone.length < 10 || !editEmpName}
+                  className="flex items-center gap-2 px-8 py-3 bg-[#4ECDC4] text-white font-black rounded-full hover:bg-[#26C6DA] transition-colors shadow-sm disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {isEditingEmp ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

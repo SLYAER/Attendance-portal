@@ -26,9 +26,70 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
   const [userData, setUserData] = useState<any>(null);
   const [cameraMode, setCameraMode] = useState<'in' | 'out' | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
+  const [confirmClockOut, setConfirmClockOut] = useState(false);
+
+  const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
 
   const activeUserId = localUser?.uid || auth.currentUser?.uid;
   
+  const salaryData = React.useMemo(() => {
+    if (!userData?.monthlySalary) return null;
+    
+    const now = new Date();
+    const startDateStr = userData.joinDate || userData.createdAt;
+    const joinDateObj = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const cycleDay = joinDateObj.getDate();
+    
+    let cycleStartObj = new Date(now.getFullYear(), now.getMonth(), cycleDay);
+    if (now.getDate() < cycleDay) {
+      cycleStartObj = new Date(now.getFullYear(), now.getMonth() - 1, cycleDay);
+    }
+    
+    const cycleEndObj = new Date(cycleStartObj.getFullYear(), cycleStartObj.getMonth() + 1, cycleDay);
+    const daysInCycle = Math.round((cycleEndObj.getTime() - cycleStartObj.getTime()) / (1000 * 60 * 60 * 24));
+    
+    const attendedDates = new Set();
+    allRecords.forEach(r => {
+      const rDate = new Date(r.date);
+      if (rDate >= cycleStartObj && rDate <= now) {
+        attendedDates.add(r.date);
+      }
+    });
+
+    const elapsedMs = now.getTime() - cycleStartObj.getTime();
+    let elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+    if (elapsedDays < 0) elapsedDays = 0;
+    
+    let absents = 0;
+    for (let i = 0; i < elapsedDays; i++) {
+        const d = new Date(cycleStartObj.getFullYear(), cycleStartObj.getMonth(), cycleStartObj.getDate() + i);
+        const dateStr = format(d, 'yyyy-MM-dd');
+        if (!attendedDates.has(dateStr)) {
+            absents++;
+        }
+    }
+    
+    const perDay = userData.monthlySalary / daysInCycle;
+    const deductions = absents * perDay;
+    const advance = userData.advanceTaken || 0;
+    const remainingSalary = userData.monthlySalary - advance - deductions;
+
+    return {
+      monthlySalary: userData.monthlySalary,
+      perDay: Math.round(perDay),
+      daysInCycle,
+      elapsed: elapsedDays,
+      attended: attendedDates.size,
+      absent: absents,
+      advanceTaken: advance,
+      remainingSalary: Math.round(remainingSalary),
+      deductions: Math.round(deductions),
+      cycleStart: format(cycleStartObj, 'MMM d'),
+      cycleEnd: format(cycleEndObj, 'MMM d')
+    };
+  }, [userData, allRecords, activeUserId]);
+
   // Real-time clock update
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -87,8 +148,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     const q = query(
       collection(db, 'attendance'),
       where('userId', '==', activeUserId),
-      orderBy('date', 'desc'),
-      limit(7)
+      orderBy('date', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -97,9 +157,13 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
         records.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
       });
       
-      setRecentRecords(records);
+      setAllRecords(records);
+      setRecentRecords(records.slice(0, 7));
       
-      const today = format(currentTime, 'yyyy-MM-dd');
+      const currentMonth = format(new Date(), 'yyyy-MM');
+      setMonthlyRecords(records.filter(r => r.date.startsWith(currentMonth)));
+      
+      const today = format(new Date(), 'yyyy-MM-dd');
       const todayRec = records.find(r => r.date === today);
       setTodayRecord(todayRec || null);
       
@@ -297,10 +361,6 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
   const isClockedOut = isClockedIn && !!todayRecord.clockOut;
 
   const handleSignOut = async () => {
-    if (isClockedIn && !isClockedOut) {
-      await processClockOut(undefined, true);
-    }
-    
     if (localUser) {
       onLogoutLocal();
     } else {
@@ -335,17 +395,15 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
           {userData?.phoneNumber && <span className="text-[#A0AEC0] font-bold text-[10px] sm:text-xs">{userData.phoneNumber}</span>}
           <div className="flex items-center gap-4 mt-1">
             {isAdmin && (
-              <>
-                <button onClick={onOpenAdmin} className="flex items-center gap-1 text-sm font-bold text-blue-500 hover:text-blue-600 transition-colors">
-                  <ShieldAlert className="w-4 h-4" />
-                  ADMIN PANEL
-                </button>
-                <button onClick={handleSignOut} className="flex items-center gap-1 text-sm font-bold text-[#FF6B6B] hover:text-[#EE5253] transition-colors">
-                  <LogOut className="w-4 h-4" />
-                  SIGN OUT
-                </button>
-              </>
+              <button onClick={onOpenAdmin} className="flex items-center gap-1 text-sm font-bold text-blue-500 hover:text-blue-600 transition-colors">
+                <ShieldAlert className="w-4 h-4" />
+                ADMIN PANEL
+              </button>
             )}
+            <button onClick={handleSignOut} className="flex items-center gap-1 text-sm font-bold text-[#FF6B6B] hover:text-[#EE5253] transition-colors">
+              <LogOut className="w-4 h-4" />
+              EXIT
+            </button>
           </div>
         </div>
       </header>
@@ -388,7 +446,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
                 </button>
               ) : !isClockedOut ? (
                 <button
-                  onClick={() => setCameraMode('out')}
+                  onClick={() => setConfirmClockOut(true)}
                   className="w-full py-6 sm:py-8 bg-[#F9D423] hover:bg-[#F1C40F] text-[#8B6E00] rounded-[32px] text-2xl sm:text-3xl font-black shadow-[0_8px_0_0_#D4AC0D] active:translate-y-1 active:shadow-none transition-all"
                 >
                   CLOCK OUT
@@ -405,6 +463,50 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
 
         {/* Right Side: Status/Logs */}
         <div className="md:col-span-5 flex flex-col gap-6">
+          {salaryData && (
+            <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg">
+              <h3 className="text-xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-2">
+                💰 Salary Status
+              </h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center bg-[#F0FFF4] p-4 rounded-2xl border-2 border-[#4ECDC4]/20">
+                  <span className="font-bold text-[#A0AEC0]">Remaining Salary</span>
+                  <span className="text-3xl font-black text-[#4ECDC4]">₹{salaryData.remainingSalary.toLocaleString()}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                  <div className="bg-gray-50 p-3 rounded-2xl border-2 border-gray-100 flex flex-col justify-center items-center text-center">
+                    <span className="block text-[9px] font-black uppercase text-[#A0AEC0]">Monthly Base</span>
+                    <span className="block text-[15px] font-black text-[#2D3436]">₹{salaryData.monthlySalary.toLocaleString()}</span>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-2xl border-2 border-gray-100 flex flex-col justify-center items-center text-center">
+                    <span className="block text-[9px] font-black uppercase text-[#A0AEC0]">Advance</span>
+                    <span className="block text-[15px] font-black text-[#FFB020]">₹{salaryData.advanceTaken.toLocaleString()}</span>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-2xl border-2 border-gray-100 flex flex-col justify-center items-center text-center col-span-2 lg:col-span-1">
+                    <span className="block text-[9px] font-black uppercase text-[#A0AEC0]">Deductions</span>
+                    <span className="block text-[15px] font-black text-[#FF6B6B]">₹{salaryData.deductions.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mt-2 pt-4 border-t-2 border-gray-100">
+                  <div className="text-center">
+                    <span className="block text-2xl font-black text-[#2D3436]">{salaryData.daysInCycle}</span>
+                    <span className="text-[10px] font-black uppercase text-[#A0AEC0]">Cycle Days ({salaryData.cycleStart} - {salaryData.cycleEnd})</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="block text-2xl font-black text-[#4ECDC4]">{salaryData.attended}</span>
+                    <span className="text-[10px] font-black uppercase text-[#A0AEC0]">Present</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="block text-2xl font-black text-[#FF6B6B]">{salaryData.absent}</span>
+                    <span className="text-[10px] font-black uppercase text-[#A0AEC0]">Absent</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#FFD93D] flex-grow shadow-lg hidden sm:block">
             <div className="flex items-center gap-2 mb-6">
               <CalendarDays className="w-6 h-6 text-[#F9D423]" />
@@ -489,6 +591,32 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
           onCapture={handleCapture}
           onClose={() => setCameraMode(null)}
         />
+      )}
+
+      {confirmClockOut && (
+        <div className="fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-2xl text-center">
+            <h3 className="text-2xl font-black text-[#2D3436] mb-2">Are you sure?</h3>
+            <p className="text-[#A0AEC0] font-bold mb-8">You are about to clock out for the day. You cannot undo this action.</p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setConfirmClockOut(false)}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-[#A0AEC0] rounded-xl font-black transition-colors"
+              >
+                CANCEL
+              </button>
+              <button 
+                onClick={() => {
+                  setConfirmClockOut(false);
+                  setCameraMode('out');
+                }}
+                className="flex-1 py-3 bg-[#F9D423] hover:bg-[#F1C40F] text-[#8B6E00] rounded-xl font-black transition-colors"
+              >
+                CLOCK OUT
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {successMessage && (
