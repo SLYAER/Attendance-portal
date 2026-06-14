@@ -26,6 +26,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [dailyCodes, setDailyCodes] = useState<Record<string, string>>({});
   const [generatingCodes, setGeneratingCodes] = useState(false);
   
+  const [dailyViewDate, setDailyViewDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmpPhone, setNewEmpPhone] = useState('');
@@ -203,6 +204,15 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const selectedEmployeeData = useMemo(() => {
     return groupedEmployees.find(e => e.id === selectedUserId);
   }, [groupedEmployees, selectedUserId]);
+
+  const activeStaff = useMemo(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    return records.filter(r => r.date === today && !r.clockOut);
+  }, [records]);
+
+  const recordsForSelectedDate = useMemo(() => {
+    return records.filter(r => r.date === dailyViewDate);
+  }, [records, dailyViewDate]);
 
   const chartData = useMemo(() => {
     const currentMonth = format(new Date(), 'yyyy-MM');
@@ -433,7 +443,69 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
           </div>
         )}
 
-        <div className="bg-white rounded-[40px] p-8 md:p-10 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg min-h-[500px]">
+        {/* Daily View & Active Clock-ins */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Active Clocked In Staff */}
+          <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg">
+            <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-3">
+              🟢 Currently Clocked In
+            </h2>
+            <div className="space-y-4">
+              {activeStaff.length > 0 ? activeStaff.map(staff => (
+                <div key={staff.id} className="flex justify-between items-center p-4 rounded-2xl bg-[#F0FFF4] border-2 border-[#4ECDC4]/20">
+                  <span className="font-bold text-[#2D3436]">{staff.employeeName}</span>
+                  <span className="text-sm font-black text-[#4ECDC4]">Since {format(new Date(staff.clockIn), 'h:mm a')}</span>
+                </div>
+              )) : (
+                <div className="text-center text-[#A0AEC0] font-bold py-6">No active clock-ins.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Daily Attendance via Calendar */}
+          <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#F9D423] shadow-lg flex flex-col">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] flex items-center gap-3">
+                📅 Daily Records
+              </h2>
+              <input
+                type="date"
+                value={dailyViewDate}
+                onChange={e => setDailyViewDate(e.target.value)}
+                className="bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-2 font-bold text-[#2D3436] outline-none focus:border-[#F9D423]"
+              />
+            </div>
+            
+            <div className="flex-1 overflow-y-auto max-h-[300px] pr-2 space-y-3">
+              {recordsForSelectedDate.length > 0 ? recordsForSelectedDate.map(record => (
+                <div key={record.id} className="p-4 rounded-2xl bg-gray-50 border-2 border-gray-100 flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-[#2D3436] text-lg">{record.employeeName}</span>
+                    <span className="text-xs font-black text-[#A0AEC0]">{format(new Date(record.date), 'MMM d, yyyy')}</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-[#A0AEC0] uppercase">In:</span>
+                      <span className="text-sm font-black text-[#4ECDC4]">{format(new Date(record.clockIn), 'h:mm a')}</span>
+                    </div>
+                    {record.clockOut ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#A0AEC0] uppercase">Out:</span>
+                        <span className="text-sm font-black text-[#FF6B6B]">{format(new Date(record.clockOut), 'h:mm a')}</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm font-black text-[#F9D423]">Active</span>
+                    )}
+                  </div>
+                </div>
+              )) : (
+                <div className="text-center text-[#A0AEC0] font-bold py-6">No attendance records for this date.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[40px] p-8 md:p-10 border-b-8 border-r-8 border-[#2D3436] shadow-lg min-h-[500px]">
           {loading ? (
             <div className="text-center text-[#A0AEC0] font-bold py-10 animate-pulse">Loading...</div>
           ) : !selectedUserId ? (

@@ -23,12 +23,23 @@ export default function App() {
   const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
+    // Lock browser history to prevent back button from exiting
+    const lockHistory = () => {
+      window.history.pushState(null, '', window.location.href);
+    };
+    
+    lockHistory();
+    window.addEventListener('popstate', lockHistory);
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setAuthUser(currentUser);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.removeEventListener('popstate', lockHistory);
+    };
   }, []);
 
   if (loading) {
