@@ -101,7 +101,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFFCF0] text-[#2D3436] font-sans flex flex-col relative overflow-hidden">
+    <div id="profile-selector-screen" className="min-h-screen bg-[#FFFCF0] text-[#2D3436] font-sans flex flex-col relative overflow-hidden">
       <header className="h-20 sm:h-24 px-6 md:px-12 flex items-center justify-between bg-white border-b-4 border-[#F9D423] shrink-0">
         <div className="flex items-center gap-4">
           <h1 className="text-xl sm:text-3xl font-black tracking-tight text-[#2D3436]">
@@ -147,7 +147,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
 
       {/* PIN Modal */}
       {selectedUser && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-all">
+        <div id="pin-modal" className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-all">
           <form 
             onSubmit={handlePinSubmit}
             className="bg-white rounded-[40px] p-8 md:p-10 w-full max-w-sm border-b-8 border-r-8 border-[#4ECDC4] shadow-2xl relative"

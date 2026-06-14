@@ -130,15 +130,17 @@ export default function App() {
     let isHolding = false;
     
     const startHold = (e: MouseEvent | TouchEvent) => {
+      if (!document.getElementById('profile-selector-screen') || document.getElementById('pin-modal')) return;
       if ((e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('button')) return;
       if (document.getElementById('daily-expenses-modal')) return;
+      
       isHolding = true;
-      let progress = 0;
-      setHoldProgress(0);
+      let ms = 0;
+      setHoldProgress(0); // Using holdProgress to store elapsed time in MS
       
       progressTimer = setInterval(() => {
-        progress += 2; // 2% every 100ms means 100% in 5000ms
-        setHoldProgress(progress);
+        ms += 100;
+        setHoldProgress(ms);
       }, 100);
 
       holdTimer = setTimeout(() => {
@@ -146,7 +148,7 @@ export default function App() {
         setHoldProgress(0);
         isHolding = false;
         setShowExpenses(true);
-      }, 5000); // 5s
+      }, 8000); // 8s total
     };
 
     const cancelHold = () => {
@@ -281,7 +283,7 @@ export default function App() {
         </div>
       )}
 
-      {holdProgress > 0 && holdProgress <= 100 && (
+      {holdProgress >= 3000 && holdProgress <= 8000 && (
         <div className="fixed inset-0 z-[12000] pointer-events-none flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative flex items-center justify-center">
             <svg className="w-48 h-48 -rotate-90 transform animate-spin-slow">
@@ -298,7 +300,7 @@ export default function App() {
                 className="text-[#F9D423]"
                 strokeWidth="8"
                 strokeDasharray={502}
-                strokeDashoffset={502 - (holdProgress / 100) * 502}
+                strokeDashoffset={Math.max(0, 502 - ((holdProgress - 3000) / 5000) * 502)}
                 strokeLinecap="round"
                 stroke="currentColor"
                 fill="transparent"
@@ -309,7 +311,7 @@ export default function App() {
               />
             </svg>
             <div className="absolute font-black text-4xl text-white drop-shadow-xl animate-pulse flex flex-col items-center">
-              <span>{Math.max(0, Math.ceil(5 - (holdProgress/20)))}s</span>
+              <span>{Math.max(0, Math.ceil((8000 - holdProgress) / 1000))}s</span>
             </div>
           </div>
         </div>
