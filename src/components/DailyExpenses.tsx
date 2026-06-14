@@ -22,6 +22,34 @@ export default function DailyExpenses({ onClose }: { onClose: () => void }) {
   const [category, setCategory] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [expenseAdded, setExpenseAdded] = useState(false);
+
+  useEffect(() => {
+    if (!expenseAdded) return;
+    
+    let timeout: ReturnType<typeof setTimeout>;
+    const resetTimer = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        onClose();
+      }, 15000);
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    window.addEventListener('touchstart', resetTimer);
+    window.addEventListener('click', resetTimer);
+
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      window.removeEventListener('touchstart', resetTimer);
+      window.removeEventListener('click', resetTimer);
+    };
+  }, [expenseAdded, onClose]);
 
   useEffect(() => {
     // Fetch employees
@@ -91,6 +119,7 @@ export default function DailyExpenses({ onClose }: { onClose: () => void }) {
       setDescription('');
       setCategory('');
       setEmployeeName('');
+      setExpenseAdded(true);
     } catch (e: any) {
       console.error(e);
       setErrorMsg('Failed to add expense: ' + (e.message || 'Unknown error'));
