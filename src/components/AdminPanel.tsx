@@ -5,7 +5,6 @@ import { AttendanceRecord } from '../types';
 import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { getGmailTokenAndUser, sendGmailMessage } from '../lib/gmail';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -229,11 +228,11 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     return groupedEmployees.find(e => e.id === selectedUserId);
   }, [groupedEmployees, selectedUserId]);
 
-  const selectedEmployeeSalary = useMemo(() => {
-    if (!selectedEmployeeData?.monthlySalary) return null;
+  const calculateSalaryData = (emp: any) => {
+    if (!emp?.monthlySalary) return null;
     
     const now = new Date();
-    const startDateStr = selectedEmployeeData.joinDate || selectedEmployeeData.createdAt;
+    const startDateStr = emp.joinDate || emp.createdAt;
     const joinDateObj = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1);
     const cycleDay = joinDateObj.getDate();
     
@@ -250,7 +249,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     let fullAbsents = 0;
     let halfDays = 0;
     
-    selectedEmployeeData.records.forEach(r => {
+    emp.records.forEach((r: any) => {
       const rDate = new Date(r.date);
       if (rDate >= cycleStartObj && rDate < cycleEndObj) {
         if (r.status === 'absent') {
@@ -270,13 +269,13 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     let elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
     if (elapsedDays < 0) elapsedDays = 0;
     
-    const perDay = selectedEmployeeData.monthlySalary / daysInCycle;
+    const perDay = emp.monthlySalary / daysInCycle;
     const deductions = absents * perDay;
-    const advance = selectedEmployeeData.advanceTaken || 0;
-    const remainingSalary = selectedEmployeeData.monthlySalary - advance - deductions;
+    const advance = emp.advanceTaken || 0;
+    const remainingSalary = emp.monthlySalary - advance - deductions;
 
     return {
-      monthlySalary: selectedEmployeeData.monthlySalary,
+      monthlySalary: emp.monthlySalary,
       perDay: Math.round(perDay),
       daysInCycle,
       elapsed: elapsedDays,
@@ -290,6 +289,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       cycleStart: format(cycleStartObj, 'MMM d'),
       cycleEnd: format(cycleEndObj, 'MMM d')
     };
+  };
+
+  const selectedEmployeeSalary = useMemo(() => {
+    return calculateSalaryData(selectedEmployeeData);
   }, [selectedEmployeeData]);
 
   const activeStaff = useMemo(() => {
@@ -345,37 +348,36 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     }
   };
 
+  const ADMIN_EMAIL = 'ascendservices.corp@gmail.com';
+
   const handleSendAbsentNotification = async (employee: any, payload: any) => {
     const isHalfDay = payload.status === 'half-day';
 
     try {
-      showToast('Authenticating with Gmail...', 'success');
-      const { accessToken } = await getGmailTokenAndUser();
-      
-      const subject = isHalfDay ? 'Notice: Half Day Marked' : 'Notice: Absence Marked';
+      const subject = isHalfDay ? `Notice: Half Day Marked - ${employee.name}` : `Notice: Absence Marked - ${employee.name}`;
       const body = `Hello ${employee.name},\n\n`
         + `This is to inform you that you have been marked as ${isHalfDay ? 'HALF DAY' : 'ABSENT'} for ${format(new Date(payload.date), 'MMM d, yyyy')}.\n`
         + `Please note that applicable fines or deductions will be applied to your monthly salary.\n\n`
         + `Best,\nManagement`;
 
-      await sendGmailMessage(accessToken, employee.email, subject, body);
-      showToast('Notification email sent successfully!');
+      const to = employee.email ? [employee.email, ADMIN_EMAIL] : [ADMIN_EMAIL];
+
+      await addDoc(collection(db, 'mail'), {
+        to,
+        message: {
+          subject,
+          text: body,
+        }
+      });
+      showToast('Notification queued to send!');
     } catch (e: any) {
       console.error(e);
-      showToast('Failed to send email: ' + e.message, 'error');
+      showToast('Failed to queue email: ' + e.message, 'error');
     }
   };
 
   const handleSendMonthlyReport = async (employee: any, salaryData: any) => {
-    if (!employee.email) {
-      showToast('Employee does not have an email address set.', 'error');
-      return;
-    }
-
     try {
-      showToast('Authenticating with Gmail...', 'success');
-      const { accessToken } = await getGmailTokenAndUser();
-      
       const subject = `Monthly Salary Report: ${employee.name}`;
       const body = `Hello ${employee.name},\n\n`
         + `Here is your salary report for the current cycle:\n`
@@ -390,11 +392,71 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         + `NET SALARY PAYABLE: ₹${salaryData.remainingSalary.toLocaleString()}\n\n`
         + `Best,\nManagement`;
 
-      await sendGmailMessage(accessToken, employee.email, subject, body);
-      showToast('Monthly report email sent successfully!', 'success');
+      const to = employee.email ? [employee.email, ADMIN_EMAIL] : [ADMIN_EMAIL];
+
+      await addDoc(collection(db, 'mail'), {
+        to,
+        message: {
+          subject,
+          text: body,
+        }
+      });
+      showToast('Monthly report queued to send!', 'success');
     } catch (e: any) {
       console.error(e);
-      showToast('Failed to send report: ' + e.message, 'error');
+      showToast('Failed to queue report: ' + e.message, 'error');
+    }
+  };
+
+  const handleSendMonthlyReportToAll = async () => {
+    const confirmSend = window.confirm('Queue monthly salary report emails for ALL employees?');
+    if (!confirmSend) return;
+
+    try {
+      showToast('Queueing reports...', 'success');
+      
+      let sentCount = 0;
+      let errorCount = 0;
+
+      for (const employee of groupedEmployees) {
+        const salaryData = calculateSalaryData(employee);
+        if (!salaryData) continue;
+
+        const subject = `Monthly Salary Report: ${employee.name}`;
+        const body = `Hello ${employee.name},\n\n`
+          + `Here is your salary report for the current cycle:\n`
+          + `-------------------------------------------------\n`
+          + `Total Salary Configured: ₹${employee.monthlySalary?.toLocaleString() || 0}\n`
+          + `Presents: ${salaryData.attended} days\n`
+          + `Half Days: ${salaryData.halfDays || 0} days\n`
+          + `Absents: ${salaryData.fullAbsents} days\n\n`
+          + `Deductions (Absents & Half days): ₹${salaryData.deductions.toLocaleString()}\n`
+          + `Advances Taken: ₹${salaryData.advanceTaken.toLocaleString()}\n`
+          + `-------------------------------------------------\n`
+          + `NET SALARY PAYABLE: ₹${salaryData.remainingSalary.toLocaleString()}\n\n`
+          + `Best,\nManagement`;
+
+        const to = employee.email ? [employee.email, ADMIN_EMAIL] : [ADMIN_EMAIL];
+
+        try {
+          await addDoc(collection(db, 'mail'), {
+            to,
+            message: {
+              subject,
+              text: body,
+            }
+          });
+          sentCount++;
+        } catch (e: any) {
+          console.error(`Failed to queue for ${employee.name}`, e);
+          errorCount++;
+        }
+      }
+
+      showToast(`Finished: Queued ${sentCount} emails, ${errorCount} errors.`, 'success');
+    } catch (e: any) {
+      console.error(e);
+      showToast('Failed to queue reports: ' + e.message, 'error');
     }
   };
 
@@ -428,7 +490,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       fetchRecords();
       showToast('Record added successfully!');
 
-      if ((addRecordStatus === 'absent' || addRecordStatus === 'half-day') && selectedEmployeeData.email) {
+      if (addRecordStatus === 'absent' || addRecordStatus === 'half-day') {
         handleSendAbsentNotification(selectedEmployeeData, payload);
       }
     } catch (error) {
@@ -469,7 +531,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       fetchRecords();
       showToast('Record updated successfully!');
       
-      if ((editStatus === 'absent' || editStatus === 'half-day') && selectedEmployeeData?.email) {
+      if (editStatus === 'absent' || editStatus === 'half-day') {
         handleSendAbsentNotification(selectedEmployeeData, { ...editingRecord, ...payload });
       }
     } catch (error) {
@@ -793,14 +855,23 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   <Users className="w-8 h-8 text-[#4ECDC4]" />
                   Team Members
                 </h2>
-                <button
-                  onClick={handleGenerateCodes}
-                  disabled={generatingCodes}
-                  className={`${confirmGenerate ? 'bg-[#FF6B6B] hover:bg-[#FF5252]' : 'bg-[#2D3436] hover:bg-[#1A202C]'} text-white font-black px-6 py-3 rounded-2xl shadow-md transition-colors disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base self-start sm:self-auto`}
-                >
-                  <KeyRound className="w-5 h-5" />
-                  {generatingCodes ? "Generating..." : confirmGenerate ? "Confirm?" : "Generate Missing Codes"}
-                </button>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 self-start sm:self-auto">
+                  <button
+                    onClick={handleSendMonthlyReportToAll}
+                    className="bg-[#FFEAA7] hover:bg-[#F9D423] text-[#2D3436] font-black px-6 py-3 rounded-2xl shadow-md transition-colors flex items-center gap-2 text-sm sm:text-base border-2 border-[#2D3436]/10"
+                  >
+                    <Mail className="w-5 h-5" />
+                    Send All Reports
+                  </button>
+                  <button
+                    onClick={handleGenerateCodes}
+                    disabled={generatingCodes}
+                    className={`${confirmGenerate ? 'bg-[#FF6B6B] hover:bg-[#FF5252]' : 'bg-[#2D3436] hover:bg-[#1A202C]'} text-white font-black px-6 py-3 rounded-2xl shadow-md transition-colors disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base`}
+                  >
+                    <KeyRound className="w-5 h-5" />
+                    {generatingCodes ? "Generating..." : confirmGenerate ? "Confirm?" : "Generate Missing Codes"}
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <button

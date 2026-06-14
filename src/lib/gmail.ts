@@ -25,11 +25,19 @@ export const getGmailTokenAndUser = async (): Promise<{ user: User; accessToken:
   return { user: cachedUser, accessToken: cachedAccessToken };
 };
 
-export const sendGmailMessage = async (accessToken: string, to: string, subject: string, body: string) => {
-  const emailContent = [
+export const sendGmailMessage = async (accessToken: string, to: string, subject: string, body: string, cc?: string) => {
+  const headers = [
     `To: ${to}`,
     `Subject: ${subject}`,
-    `Content-Type: text/plain; charset=utf-8`,
+    `Content-Type: text/plain; charset=utf-8`
+  ];
+
+  if (cc) {
+    headers.push(`Cc: ${cc}`);
+  }
+
+  const emailContent = [
+    ...headers,
     '',
     body,
   ].join('\r\n');

@@ -50,15 +50,31 @@ export default function App() {
     );
   }
 
-  const isAdmin = authUser?.email === 'loveranger900@gmail.com' || window.location.hostname === 'localhost';
+  const isAdmin = authUser?.email === 'ascendservices.corp@gmail.com' || authUser?.email === 'loveranger900@gmail.com' || window.location.hostname === 'localhost';
 
   const handleLogout = () => {
     auth.signOut();
   };
 
   const handleOpenAdmin = () => {
-    setShowPasswordPrompt(true);
-    setPasswordError('');
+    if (isAdmin) {
+      setIsAdminView(true);
+      localStorage.setItem('isAdminLoggedIn', 'true');
+    } else {
+      setShowPasswordPrompt(true);
+      setPasswordError('');
+    }
+  };
+
+  const handleDeveloperLogin = async () => {
+    try {
+      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      console.error(e);
+      alert('Developer login failed');
+    }
   };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -87,6 +103,22 @@ export default function App() {
         onOpenAdmin={handleOpenAdmin} 
       />
       
+      {!authUser && (
+        <button 
+          onClick={handleDeveloperLogin}
+          className="fixed bottom-4 right-4 text-[10px] font-bold text-gray-400 hover:text-gray-600 bg-white/50 px-3 py-2 rounded-xl backdrop-blur-sm z-40 transition-colors"
+        >
+          Dev Login
+        </button>
+      )}
+
+      {authUser && isAdmin && (
+        <div className="fixed bottom-4 right-4 text-[10px] font-bold text-[#4ECDC4] bg-white shadow-sm px-3 py-2 rounded-xl z-40 flex items-center gap-2">
+          {authUser.email}
+          <button onClick={handleLogout} className="text-gray-400 hover:text-[#FF6B6B]">Logout</button>
+        </div>
+      )}
+
       {showPasswordPrompt && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <form 
