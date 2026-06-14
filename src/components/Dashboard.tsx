@@ -25,6 +25,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
   const [isVerifyingLocation, setIsVerifyingLocation] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const [cameraMode, setCameraMode] = useState<'in' | 'out' | null>(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const activeUserId = localUser?.uid || auth.currentUser?.uid;
   
@@ -235,6 +236,15 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
 
     try {
       await setDoc(newDocRef, record);
+      setSuccessMessage('Clocked in successfully! Closing...');
+      setTimeout(() => {
+        try { window.close(); } catch (e) {}
+        if (localUser) {
+          onLogoutLocal();
+        } else {
+          auth.signOut();
+        }
+      }, 2500);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'attendance');
     }
@@ -259,6 +269,17 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
 
     try {
       await updateDoc(doc(db, 'attendance', todayRecord.id), updateData);
+      if (!skipLocation) {
+        setSuccessMessage('Clocked out successfully! Closing...');
+        setTimeout(() => {
+          try { window.close(); } catch (e) {}
+          if (localUser) {
+            onLogoutLocal();
+          } else {
+            auth.signOut();
+          }
+        }, 2500);
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `attendance/${todayRecord.id}`);
     }
@@ -468,6 +489,18 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
           onCapture={handleCapture}
           onClose={() => setCameraMode(null)}
         />
+      )}
+
+      {successMessage && (
+        <div className="fixed inset-0 bg-[#FFFCF0] z-[100] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+          <div className="w-24 h-24 bg-[#4ECDC4] rounded-full flex items-center justify-center mb-6 shadow-lg shadow-[#4ECDC4]/30 animate-bounce">
+            <CheckCircle2 className="w-12 h-12 text-white" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-black text-[#2D3436] mb-4">
+            {successMessage}
+          </h2>
+          <p className="text-[#A0AEC0] font-bold tracking-widest uppercase">Returning to home screen...</p>
+        </div>
       )}
     </div>
   );
