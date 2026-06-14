@@ -309,6 +309,7 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
       employeeName: userData?.name || 'Employee',
       date: dateStr,
       clockIn: isoStr,
+      status: now.getHours() >= 13 ? 'half-day' : 'present',
     };
     if (photoBase64) {
       record.clockInPhoto = photoBase64;
