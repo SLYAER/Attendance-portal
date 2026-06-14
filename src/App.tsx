@@ -203,14 +203,14 @@ export default function App() {
 
       {showIdleOverlay && (
         <div 
-          className="fixed inset-0 bg-[#2D3436] z-[9999] flex items-center justify-center cursor-pointer animate-in fade-in duration-500"
+          className="fixed inset-0 bg-black z-[9999] flex items-center justify-center cursor-pointer animate-in fade-in duration-500"
           onClick={() => setShowIdleOverlay(false)}
         >
           <div className="text-center px-4 animate-bounce">
-            <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-white drop-shadow-2xl">
+            <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-[#A0AEC0]">
               MEHTA SALES CORP
             </h1>
-            <p className="text-[#A0AEC0] mt-4 font-bold tracking-widest uppercase animate-pulse">
+            <p className="text-[#A0AEC0]/50 mt-4 font-bold tracking-widest uppercase animate-pulse">
               Tap anywhere to continue
             </p>
           </div>
