@@ -21,6 +21,15 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
 
   useEffect(() => {
     fetchUsers();
+
+    const handleIdleReset = () => {
+      setSelectedUser(null);
+      setLoggedInUser(null);
+      setPin('');
+      setPinError('');
+    };
+    window.addEventListener('appIdleReset', handleIdleReset);
+    return () => window.removeEventListener('appIdleReset', handleIdleReset);
   }, []);
 
   const fetchUsers = async () => {

@@ -22,6 +22,8 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  const [showIdleOverlay, setShowIdleOverlay] = useState(false);
+
   useEffect(() => {
     // Lock browser history to prevent back button from exiting
     const lockHistory = () => {
@@ -36,9 +38,30 @@ export default function App() {
       setLoading(false);
     });
 
+    let idleTimer: ReturnType<typeof setTimeout>;
+    const resetIdleTimer = () => {
+      clearTimeout(idleTimer);
+      // 10 minutes
+      idleTimer = setTimeout(() => {
+        setIsAdminView(false);
+        setShowPasswordPrompt(false);
+        setPasswordInput('');
+        setPasswordError('');
+        localStorage.removeItem('isAdminLoggedIn');
+        window.dispatchEvent(new Event('appIdleReset'));
+        setShowIdleOverlay(true);
+      }, 10 * 60 * 1000); 
+    };
+
+    const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'];
+    events.forEach(e => window.addEventListener(e, resetIdleTimer));
+    resetIdleTimer();
+
     return () => {
       unsubscribe();
       window.removeEventListener('popstate', lockHistory);
+      clearTimeout(idleTimer);
+      events.forEach(e => window.removeEventListener(e, resetIdleTimer));
     };
   }, []);
 
@@ -155,6 +178,22 @@ export default function App() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {showIdleOverlay && (
+        <div 
+          className="fixed inset-0 bg-[#2D3436] z-[9999] flex items-center justify-center cursor-pointer animate-in fade-in duration-500"
+          onClick={() => setShowIdleOverlay(false)}
+        >
+          <div className="text-center px-4 animate-bounce">
+            <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-white drop-shadow-2xl">
+              MEHTA SALES CORP
+            </h1>
+            <p className="text-[#A0AEC0] mt-4 font-bold tracking-widest uppercase animate-pulse">
+              Tap anywhere to continue
+            </p>
+          </div>
         </div>
       )}
     </>
