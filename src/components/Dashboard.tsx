@@ -509,13 +509,13 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
               <h3 className="text-xl font-black uppercase tracking-wider text-[#2D3436]">History</h3>
             </div>
 
-            <div className="space-y-4">
-              {recentRecords.length === 0 ? (
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+              {monthlyRecords.length === 0 ? (
                 <div className="text-center text-[#A0AEC0] font-medium py-4">
                   No previous attendance records found.
                 </div>
               ) : (
-                recentRecords.map(record => (
+                monthlyRecords.map(record => (
                   <div key={record.id} className="flex items-center justify-between border-b-2 border-[#FFFCF0] pb-4">
                     <div className="flex flex-col gap-1">
                       <p className="font-bold text-sm text-[#2D3436]">{record.date ? format(new Date(record.date), 'MMM d, yyyy') : record.clockIn ? format(new Date(record.clockIn), 'MMM d, yyyy') : '—'}</p>
@@ -556,13 +556,13 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
               <CalendarDays className="w-6 h-6 text-[#F9D423]" />
               <h3 className="text-xl font-black uppercase tracking-wider text-[#2D3436]">History</h3>
             </div>
-             <div className="space-y-4">
-              {recentRecords.length === 0 ? (
+             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+              {monthlyRecords.length === 0 ? (
                 <div className="text-center text-[#A0AEC0] font-medium py-4">
                   No previous attendance records found.
                 </div>
               ) : (
-                recentRecords.map(record => (
+                monthlyRecords.map(record => (
                   <div key={record.id} className="flex items-center justify-between border-b-2 border-[#FFFCF0] pb-4">
                     <div className="flex flex-col gap-1">
                       <p className="font-bold text-sm text-[#2D3436]">{record.date ? format(new Date(record.date), 'MMM d, yyyy') : record.clockIn ? format(new Date(record.clockIn), 'MMM d, yyyy') : '—'}</p>
