@@ -15,7 +15,7 @@ export default defineConfig(() => {
         filename: 'sw.ts',
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'screenshot-wide.png', 'screenshot-mobile.png'],
-        injectRegister: 'script-defer',
+        injectRegister: 'auto',
         devOptions: {
           enabled: true
         },
