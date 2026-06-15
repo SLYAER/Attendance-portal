@@ -1,6 +1,5 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 import {defineConfig} from 'vite';
 
@@ -9,22 +8,7 @@ export default defineConfig(() => {
   return {
     plugins: [
       react(), 
-      tailwindcss(),
-      VitePWA({
-        strategies: 'injectManifest',
-        srcDir: 'src',
-        filename: 'sw.ts',
-        registerType: 'autoUpdate',
-        includeAssets: ['icons/favicon.ico', 'icons/apple-touch-icon.png', 'icons/masked-icon.svg', 'screenshots/screenshot-wide.png', 'screenshots/screenshot-mobile.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-icon-512.png', 'icons/shortcut-icon.png'],
-        injectRegister: 'auto',
-        devOptions: {
-          enabled: true
-        },
-        injectManifest: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
-        },
-        manifest: false
-      })
+      tailwindcss()
     ],
     resolve: {
       alias: {
