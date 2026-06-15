@@ -30,14 +30,19 @@ export default defineConfig(() => {
           theme_color: '#FFFCF0',
           background_color: '#FFFCF0',
           display: 'standalone',
-          display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
+          display_override: ['tabbed', 'window-controls-overlay', 'standalone', 'minimal-ui'],
           orientation: 'portrait',
           start_url: '/',
           dir: 'ltr',
           lang: 'en-US',
           categories: ['productivity', 'business', 'utilities'],
           prefer_related_applications: false,
-          related_applications: [],
+          related_applications: [
+            {
+              platform: 'webapp',
+              url: 'https://attendance-portal-mocha.vercel.app/manifest.webmanifest'
+            }
+          ],
           iarc_rating_id: 'e84b072d-71b3-4d3e-86ae-31a8ce4e53b7',
           scope_extensions: [{ origin: '*.attendance.local' }],
           note_taking: {
@@ -75,7 +80,7 @@ export default defineConfig(() => {
             short_name: 'Clock In',
             description: 'Quick clock in',
             url: '/?action=clock_in',
-            icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }]
+            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }]
           }],
           file_handlers: [{
             action: '/',
@@ -85,13 +90,13 @@ export default defineConfig(() => {
           }],
           screenshots: [
             {
-              src: 'screenshot-wide.png',
+              src: '/screenshot-wide.png',
               sizes: '1280x720',
               type: 'image/png',
               form_factor: 'wide'
             },
             {
-              src: 'screenshot-mobile.png',
+              src: '/screenshot-mobile.png',
               sizes: '720x1280',
               type: 'image/png',
               form_factor: 'narrow'
@@ -99,17 +104,17 @@ export default defineConfig(() => {
           ],
           icons: [
             {
-              src: 'icon-192.png',
+              src: '/icon-192.png',
               sizes: '192x192',
               type: 'image/png'
             },
             {
-              src: 'icon-512.png',
+              src: '/icon-512.png',
               sizes: '512x512',
               type: 'image/png'
             },
             {
-              src: 'icon-512.png',
+              src: '/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'
