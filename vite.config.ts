@@ -14,7 +14,7 @@ export default defineConfig(() => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
-        includeAssets: ['icons/favicon.ico', 'icons/apple-touch-icon.png', 'icons/masked-icon.svg', 'screenshots/screenshot-wide.png', 'screenshots/screenshot-mobile.png', 'icons/icon-192.png', 'icons/icon-512.png'],
+        includeAssets: ['icons/favicon.ico', 'icons/apple-touch-icon.png', 'icons/masked-icon.svg', 'screenshots/screenshot-wide.png', 'screenshots/screenshot-mobile.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-icon-512.png'],
         injectRegister: 'auto',
         devOptions: {
           enabled: true
