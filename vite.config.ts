@@ -15,7 +15,7 @@ export default defineConfig(() => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
-        includeAssets: ['icons/favicon.ico', 'icons/apple-touch-icon.png', 'icons/masked-icon.svg', 'screenshots/screenshot-wide.png', 'screenshots/screenshot-mobile.png', '1000147622.jpg'],
+        includeAssets: ['icons/favicon.ico', 'icons/apple-touch-icon.png', 'icons/masked-icon.svg', 'screenshots/screenshot-wide.png', 'screenshots/screenshot-mobile.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-icon-512.png', 'icons/shortcut-icon.png'],
         injectRegister: 'auto',
         devOptions: {
           enabled: true
@@ -36,35 +36,35 @@ export default defineConfig(() => {
           scope: '/',
           icons: [
             {
-              src: '/1000147622.jpg',
+              src: '/icons/icon-192.png',
               sizes: '192x192',
-              type: 'image/jpeg',
+              type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/1000147622.jpg',
+              src: '/icons/icon-512.png',
               sizes: '512x512',
-              type: 'image/jpeg',
+              type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/1000147622.jpg',
+              src: '/icons/maskable-icon-512.png',
               sizes: '512x512',
-              type: 'image/jpeg',
+              type: 'image/png',
               purpose: 'maskable'
             }
           ],
           shortcuts: [
             {
-              name: 'Open Attendance',
+              name: 'Attendance',
               short_name: 'Attendance',
               description: 'Open attendance page',
-              url: '/?action=clock_in',
+              url: '/',
               icons: [
                 {
-                  src: '/1000147622.jpg',
+                  src: '/icons/shortcut-icon.png',
                   sizes: '192x192',
-                  type: 'image/jpeg'
+                  type: 'image/png'
                 }
               ]
             }
