@@ -14,6 +14,7 @@ import DailyExpenses from './components/DailyExpenses';
 const ADMIN_NUMBERS = ['+919592838651', '+919888696542', '9592838651', '9888696542'];
 
 export default function App() {
+  console.log('PWA Fix Updated V2');
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdminView, setIsAdminView] = useState(() => {

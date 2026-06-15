@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Attendance Portal",
   "short_name": "Attendance",
   "description": "Attendance portal with offline support",
