@@ -11,7 +11,8 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'screenshot-wide.png', 'screenshot-mobile.png'],
+        injectRegister: 'script-defer',
         devOptions: {
           enabled: true
         },
@@ -27,8 +28,73 @@ export default defineConfig(() => {
           theme_color: '#FFFCF0',
           background_color: '#FFFCF0',
           display: 'standalone',
+          display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
           orientation: 'portrait',
           start_url: '/',
+          dir: 'ltr',
+          lang: 'en-US',
+          categories: ['productivity', 'business', 'utilities'],
+          prefer_related_applications: false,
+          related_applications: [],
+          iarc_rating_id: 'e84b072d-71b3-4d3e-86ae-31a8ce4e53b7',
+          scope_extensions: [{ origin: '*.attendance.local' }],
+          note_taking: {
+            new_note_url: '/?new_note=true'
+          },
+          share_target: {
+            action: '/share-target',
+            method: 'GET',
+            enctype: 'application/x-www-form-urlencoded',
+            params: {
+              title: 'title',
+              text: 'text',
+              url: 'url'
+            }
+          },
+          widgets: [{
+            name: 'Attendance Widget',
+            description: 'Check attendance status',
+            tag: 'attendance',
+            template_url: '/',
+            type: 'application/json'
+          }],
+          edge_side_panel: {
+            preferred_width: 400
+          },
+          launch_handler: {
+            client_mode: ['navigate-existing', 'auto']
+          },
+          protocol_handlers: [{
+            protocol: 'web+attendance',
+            url: '/?resource=%s'
+          }],
+          shortcuts: [{
+            name: 'Clock In',
+            short_name: 'Clock In',
+            description: 'Quick clock in',
+            url: '/?action=clock_in',
+            icons: [{ src: '/icon-192.png', sizes: '192x192' }]
+          }],
+          file_handlers: [{
+            action: '/',
+            accept: {
+              'text/plain': ['.txt']
+            }
+          }],
+          screenshots: [
+            {
+              src: '/screenshot-wide.png',
+              sizes: '1280x720',
+              type: 'image/png',
+              form_factor: 'wide'
+            },
+            {
+              src: '/screenshot-mobile.png',
+              sizes: '720x1280',
+              type: 'image/png',
+              form_factor: 'narrow'
+            }
+          ],
           icons: [
             {
               src: '/icon-192.png',
