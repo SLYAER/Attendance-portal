@@ -143,6 +143,7 @@ export default function App() {
     let isHolding = false;
     
     const startHold = (e: MouseEvent | TouchEvent) => {
+      if (document.getElementById('idle-overlay')) return;
       if (!document.getElementById('profile-selector-screen') || document.getElementById('pin-modal')) return;
       if ((e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('button')) return;
       if (document.getElementById('daily-expenses-modal')) return;
@@ -266,6 +267,7 @@ export default function App() {
 
       {showIdleOverlay && (
         <div 
+          id="idle-overlay"
           className="fixed inset-0 bg-black z-[9999] flex items-center justify-center cursor-pointer animate-in fade-in duration-500"
           onClick={() => setShowIdleOverlay(false)}
         >
