@@ -34,6 +34,7 @@ export default defineConfig(() => {
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
+          categories: ['productivity', 'business', 'utilities'],
           icons: [
             {
               src: '/icons/icon-192.png',
