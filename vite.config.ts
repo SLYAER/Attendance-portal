@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+// PWA Builder valid manifest configuration is enforced via public/manifest.json
 export default defineConfig(() => {
   return {
     plugins: [
