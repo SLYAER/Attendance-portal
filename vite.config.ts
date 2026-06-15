@@ -14,7 +14,7 @@ export default defineConfig(() => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'screenshot-wide.png', 'screenshot-mobile.png'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'screenshot-wide.png', 'screenshot-mobile.png', 'icon-192.png', 'icon-512.png'],
         injectRegister: 'auto',
         devOptions: {
           enabled: true
@@ -44,7 +44,7 @@ export default defineConfig(() => {
             }
           ],
           iarc_rating_id: 'e84b072d-71b3-4d3e-86ae-31a8ce4e53b7',
-          scope_extensions: [{ origin: '*.attendance.local' }],
+          scope_extensions: [{ origin: '*.vercel.app' }],
           note_taking: {
             new_note_url: '/?new_note=true'
           },
