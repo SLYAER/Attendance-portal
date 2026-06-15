@@ -23,68 +23,7 @@ export default defineConfig(() => {
         injectManifest: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
         },
-        manifest: {
-          id: '/',
-          name: 'Attendance Portal',
-          short_name: 'Attendance',
-          description: 'Attendance portal with offline support',
-          theme_color: '#FFFCF0',
-          background_color: '#FFFCF0',
-          display: 'standalone',
-          orientation: 'portrait',
-          start_url: '/',
-          scope: '/',
-          categories: ['productivity', 'business', 'utilities'],
-          icons: [
-            {
-              src: '/icons/icon-192.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: '/icons/icon-512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: '/icons/maskable-icon-512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable'
-            }
-          ],
-          shortcuts: [
-            {
-              name: 'Attendance',
-              short_name: 'Attendance',
-              description: 'Open attendance page',
-              url: '/',
-              icons: [
-                {
-                  src: '/icons/shortcut-icon.png',
-                  sizes: '192x192',
-                  type: 'image/png'
-                }
-              ]
-            }
-          ],
-          screenshots: [
-            {
-              src: '/screenshots/screenshot-wide.png',
-              sizes: '1280x720',
-              type: 'image/png',
-              form_factor: 'wide'
-            },
-            {
-              src: '/screenshots/screenshot-mobile.png',
-              sizes: '720x1280',
-              type: 'image/png',
-              form_factor: 'narrow'
-            }
-          ]
-        }
+        manifest: false
       })
     ],
     resolve: {
