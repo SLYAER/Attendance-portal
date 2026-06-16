@@ -210,10 +210,6 @@ export default function App() {
         batteryManager.removeEventListener('levelchange', updateBatteryStatus);
         batteryManager.removeEventListener('chargingchange', updateBatteryStatus);
       }
-      window.removeEventListener('mousedown', startHold);
-      window.removeEventListener('touchstart', startHold);
-      window.removeEventListener('mouseup', cancelHold);
-      window.removeEventListener('touchend', cancelHold);
       clearInterval(sweepInterval);
     };
   }, []);

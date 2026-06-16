@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, orderBy, limit, getDocs, doc, updateDoc, deleteDoc, deleteField, getDoc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AttendanceRecord } from '../types';
-import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2, Mail, DollarSign } from 'lucide-react';
+import { ArrowLeft, Save, X, Trash2, Edit3, Users, ChevronRight, KeyRound, Camera, CheckCircle2, Mail, DollarSign, LayoutDashboard, Settings, Menu, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -11,6 +11,8 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onBack }: AdminPanelProps) {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'team' | 'hours' | 'expenses' | 'settings'>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -685,21 +687,57 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFCF0] text-[#2D3436] font-sans flex flex-col">
-      <header className="h-20 sm:h-24 px-6 md:px-12 flex items-center justify-between bg-white border-b-4 border-[#F9D423]">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-2xl flex items-center justify-center transition-colors">
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </button>
-          <h1 className="text-xl sm:text-3xl font-black tracking-tight text-[#2D3436]">
+    <div className="min-h-screen bg-[#FFFCF0] text-[#2D3436] font-sans flex overflow-hidden">
+      {/* Sidebar */}
+      <div className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r-4 border-[#F9D423] transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} flex flex-col shadow-xl lg:shadow-none`}>
+        <div className="h-24 px-6 flex items-center justify-between border-b-2 border-gray-100 shrink-0">
+          <h1 className="text-2xl font-black tracking-tight text-[#2D3436]">
             ADMIN <span className="text-[#FF6B6B]">PANEL</span>
           </h1>
+          <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+            <X className="w-6 h-6 text-gray-500" />
+          </button>
         </div>
-      </header>
+        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
+          <button onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${activeTab === 'dashboard' ? 'bg-[#F9D423] text-[#8B6E00]' : 'hover:bg-gray-100 text-[#A0AEC0]'}`}>
+            <LayoutDashboard className="w-5 h-5" /> Dashboard
+          </button>
+          <button onClick={() => { setActiveTab('team'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${activeTab === 'team' ? 'bg-[#4ECDC4] text-white' : 'hover:bg-gray-100 text-[#A0AEC0]'}`}>
+            <Users className="w-5 h-5" /> Team Members
+          </button>
+          <button onClick={() => { setActiveTab('hours'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${activeTab === 'hours' ? 'bg-[#F9D423] text-[#8B6E00]' : 'hover:bg-gray-100 text-[#A0AEC0]'}`}>
+            <Clock className="w-5 h-5" /> Working Hours
+          </button>
+          <button onClick={() => { setActiveTab('expenses'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${activeTab === 'expenses' ? 'bg-[#FF6B6B] text-white' : 'hover:bg-gray-100 text-[#A0AEC0]'}`}>
+            <DollarSign className="w-5 h-5" /> Expenses Log
+          </button>
+          <button onClick={() => { setActiveTab('settings'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${activeTab === 'settings' ? 'bg-[#2D3436] text-white' : 'hover:bg-gray-100 text-[#A0AEC0]'}`}>
+            <Settings className="w-5 h-5" /> Settings
+          </button>
+        </div>
+        <div className="p-4 border-t-2 border-gray-100">
+          <button onClick={onBack} className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-gray-700 transition-colors">
+            <ArrowLeft className="w-5 h-5" /> Exit Admin
+          </button>
+        </div>
+      </div>
 
-      <main className="flex-grow max-w-7xl mx-auto w-full p-6 md:p-10 space-y-8">
-        {/* Shop Configuration Section */}
-        <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#F9D423] shadow-lg">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+        <header className="h-20 sm:h-24 px-6 md:px-12 flex items-center justify-between bg-white/50 backdrop-blur-md lg:hidden border-b-2 border-gray-100 z-30 shrink-0">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setSidebarOpen(true)} className="w-10 h-10 bg-white shadow-sm hover:bg-gray-50 rounded-2xl flex items-center justify-center transition-colors">
+              <Menu className="w-5 h-5 text-gray-700" />
+            </button>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#2D3436] uppercase">{activeTab}</h1>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto w-full p-6 md:p-10">
+          <div className="max-w-6xl mx-auto space-y-8 pb-32 lg:pt-6">
+            
+            {activeTab === 'settings' && (
+              <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#F9D423] shadow-lg">
           <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-3">
             📍 Shop Location
           </h2>
@@ -726,9 +764,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
             </button>
           </div>
         </div>
+            )}
 
-        {/* Expenses Log */}
-        <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg">
+            {activeTab === 'expenses' && (
+              <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] flex items-center gap-3">
               <DollarSign className="text-[#4ECDC4]" /> Recent Expenses
@@ -769,35 +808,39 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
              </div>
           )}
         </div>
+            )}
 
-        {/* Analytics Section */}
-        <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#FF6B6B] shadow-lg">
-          <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-3">
-            📊 Working Hours ({format(new Date(), 'MMMM yyyy')})
-          </h2>
-          <div className="h-72 w-full mt-4">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#A0AEC0', fontWeight: 'bold' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#A0AEC0', fontWeight: 'bold' }} />
-                  <Tooltip 
-                    cursor={{ fill: '#F0FFF4' }}
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                  />
-                  <Bar dataKey="hours" fill="#4ECDC4" radius={[6, 6, 0, 0]} name="Total Hours" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex justify-center items-center h-full text-[#A0AEC0] font-bold">
-                No completed shifts this month yet.
+            {activeTab === 'hours' && (
+              <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#F9D423] shadow-lg">
+                <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-3">
+                  📊 Working Hours ({format(new Date(), 'MMMM yyyy')})
+                </h2>
+                <div className="h-72 w-full mt-4">
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#A0AEC0', fontWeight: 'bold' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#A0AEC0', fontWeight: 'bold' }} />
+                        <Tooltip 
+                          cursor={{ fill: '#F0FFF4' }}
+                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                        />
+                        <Bar dataKey="hours" fill="#F9D423" radius={[6, 6, 0, 0]} name="Total Hours" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex justify-center items-center h-full text-[#A0AEC0] font-bold">
+                      No completed shifts this month yet.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Failed Attempts Log */}
+            {activeTab === 'dashboard' && (
+              <>
+                {/* Failed Attempts Log */}
         {failedAttempts.length > 0 && (
           <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#2D3436] shadow-lg">
             <h2 className="text-2xl font-black uppercase tracking-wider text-[#FF6B6B] mb-6 flex items-center gap-3">
@@ -828,10 +871,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
           </div>
         )}
 
-        {/* Daily View & Active Clock-ins */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Active Clocked In Staff */}
-          <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg">
+                {/* Daily View & Active Clock-ins */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Active Clocked In Staff */}
+                  <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg">
             <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-3">
               🟢 Currently Clocked In
             </h2>
@@ -913,9 +956,12 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
               )}
             </div>
           </div>
-        </div>
+                </div>
+              </>
+            )}
 
-        <div className="bg-white rounded-[40px] p-8 md:p-10 border-b-8 border-r-8 border-[#2D3436] shadow-lg min-h-[500px]">
+            {activeTab === 'team' && (
+              <div className="bg-white rounded-[40px] p-8 md:p-10 border-b-8 border-r-8 border-[#2D3436] shadow-lg min-h-[500px]">
           {loading ? (
             <div className="text-center text-[#A0AEC0] font-bold py-10 animate-pulse">Loading...</div>
           ) : !selectedUserId ? (
@@ -1165,7 +1211,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
             </div>
           )}
         </div>
-      </main>
+        )}
+          </div>
+        </main>
+      </div>
 
       {/* Add Past Record Modal */}
       {isAddingRecord && selectedEmployeeData && (
