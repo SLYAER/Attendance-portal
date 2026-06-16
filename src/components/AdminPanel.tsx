@@ -10,8 +10,14 @@ interface AdminPanelProps {
   onBack: () => void;
 }
 
+const SUGGESTED_BRANDS = [
+  'Sony', 'Samsung', 'LG', 'Panasonic', 'Apple', 'Dell', 'HP', 'Lenovo', 'Asus', 'Acer', 'Microsoft', 'Bose', 'Canon', 'Nikon',
+  'Haier', 'Whirlpool', 'Bosch', 'Siemens', 'Electrolux', 'Dyson', 'Philips', 'Toshiba', 'Hitachi', 'Sharp', 'Vizio', 'Hisense', 'TCL',
+  'OnePlus', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'Motorola', 'Nokia', 'JBL', 'Sennheiser', 'Logitech', 'Razer', 'Corsair', 'Nintendo'
+];
+
 export default function AdminPanel({ onBack }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'team' | 'hours' | 'expenses' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'team' | 'hours' | 'expenses' | 'settings' | 'brands'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -59,6 +65,9 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [editAdvanceInput, setEditAdvanceInput] = useState('');
   const [isEditingAdvance, setIsEditingAdvance] = useState(false);
 
+  const [brands, setBrands] = useState<string[]>([]);
+  const [newBrandName, setNewBrandName] = useState('');
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -71,7 +80,35 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     fetchFailedAttempts();
     fetchDailyCodes();
     fetchExpenses();
+    
+    // Parse INITIAL_BRANDS from ProductCatalogFlow or just load from localstorage (sync)
+    const savedBrands = localStorage.getItem('catalogBrands');
+    if (savedBrands) {
+      try { setBrands(JSON.parse(savedBrands)); } catch(e){}
+    } else {
+      const initial = ['Sony', 'Samsung', 'LG', 'Panasonic', 'Apple', 'Dell', 'HP', 'Lenovo', 'Asus', 'Acer', 'Microsoft', 'Bose', 'Canon', 'Nikon'];
+      setBrands(initial);
+      localStorage.setItem('catalogBrands', JSON.stringify(initial));
+    }
   }, []);
+
+  const handleAddBrand = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newBrandName.trim();
+    if (!trimmed || brands.includes(trimmed)) return;
+    const updated = [...brands, trimmed];
+    setBrands(updated);
+    localStorage.setItem('catalogBrands', JSON.stringify(updated));
+    setNewBrandName('');
+    showToast("Brand initialized!");
+  };
+  
+  const handleRemoveBrand = (brandToRemove: string) => {
+    const updated = brands.filter(b => b !== brandToRemove);
+    setBrands(updated);
+    localStorage.setItem('catalogBrands', JSON.stringify(updated));
+    showToast("Brand terminated.");
+  };
 
   const fetchExpenses = async () => {
     try {
@@ -230,7 +267,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   };
 
   const groupedEmployees = useMemo(() => {
-    const map = new Map<string, { name: string; records: AttendanceRecord[] }>();
+    const map = new Map<string, any>();
     
     // First, initialize all users from `allUsers` array so they always show up
     allUsers.forEach(user => {
@@ -714,6 +751,9 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
           <button onClick={() => { setActiveTab('settings'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${activeTab === 'settings' ? 'bg-[#2D3436] text-white' : 'hover:bg-gray-100 text-[#A0AEC0]'}`}>
             <Settings className="w-5 h-5" /> Settings
           </button>
+          <button onClick={() => { setActiveTab('brands'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${activeTab === 'brands' ? 'bg-[#4ECDC4] text-white' : 'hover:bg-gray-100 text-[#A0AEC0]'}`}>
+            <LayoutDashboard className="w-5 h-5" /> Brands
+          </button>
         </div>
         <div className="p-4 border-t-2 border-gray-100">
           <button onClick={onBack} className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-gray-700 transition-colors">
@@ -736,6 +776,73 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         <main className="flex-1 overflow-y-auto w-full p-6 md:p-10">
           <div className="max-w-6xl mx-auto space-y-8 pb-32 lg:pt-6">
             
+            {activeTab === 'brands' && (
+              <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg animate-in slide-in-from-bottom-4 duration-500">
+                <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-3">
+                  <LayoutDashboard className="w-6 h-6 text-[#4ECDC4]"/> Register Brands
+                </h2>
+                
+                <form onSubmit={handleAddBrand} className="flex flex-col sm:flex-row gap-4 mb-10 w-full">
+                  <div className="flex-1 relative">
+                    <input 
+                      value={newBrandName} 
+                      onChange={e => setNewBrandName(e.target.value)} 
+                      placeholder="E.g., Samsung, LG, Sony..." 
+                      className="w-full px-6 py-4 rounded-xl border-4 border-gray-100 outline-none focus:border-[#4ECDC4] font-bold text-[#2D3436] text-lg" 
+                    />
+                    {newBrandName && SUGGESTED_BRANDS.filter(b => b.toLowerCase().startsWith(newBrandName.toLowerCase()) && !brands.map(x => x.toLowerCase()).includes(b.toLowerCase())).length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border-2 border-gray-100 overflow-hidden z-20">
+                        {SUGGESTED_BRANDS.filter(b => b.toLowerCase().startsWith(newBrandName.toLowerCase()) && !brands.map(x => x.toLowerCase()).includes(b.toLowerCase())).map(b => (
+                          <div 
+                            key={b} 
+                            onClick={() => {
+                              const updated = [...brands, b];
+                              setBrands(updated);
+                              localStorage.setItem('catalogBrands', JSON.stringify(updated));
+                              setNewBrandName('');
+                              showToast("Brand initialized!");
+                            }} 
+                            className="px-6 py-3 cursor-pointer hover:bg-[#E6F8F6] text-[#2D3436] font-bold transition-colors border-b border-gray-50 last:border-0"
+                          >
+                            {b}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button type="submit" className="px-8 py-4 bg-[#4ECDC4] hover:bg-[#3dbdb4] text-white rounded-xl font-black uppercase tracking-widest transition-colors shadow-[0_4px_0_0_#2b9f97] active:translate-y-[4px] active:shadow-none h-fit self-start sm:self-center">
+                    Add Brand
+                  </button>
+                </form>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {brands.map(b => (
+                    <div key={b} className="relative group bg-gray-50 border-4 border-gray-100 rounded-3xl p-6 flex flex-col justify-center items-center gap-4 transition-all hover:border-[#4ECDC4]">
+                      <div className="w-16 h-16 bg-white overflow-hidden rounded-full flex items-center justify-center shadow-sm border border-gray-100 p-2">
+                        <img 
+                          src={`https://www.google.com/s2/favicons?domain=${b.toLowerCase().replace(/\s+/g, '')}.com&sz=128`} 
+                          alt={b} 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-contain" 
+                          onError={(e) => { 
+                            e.currentTarget.style.display='none'; 
+                            e.currentTarget.parentElement!.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-gray-400"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg>';
+                          }} 
+                        />
+                      </div>
+                      <span className="font-black text-center text-[#2D3436] tracking-wider uppercase">{b}</span>
+                      <button 
+                        onClick={() => handleRemoveBrand(b)}
+                        className="absolute -top-3 -right-3 w-8 h-8 bg-[#FF6B6B] hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                      >
+                        <X className="w-4 h-4"/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'settings' && (
               <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#F9D423] shadow-lg">
           <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-3">

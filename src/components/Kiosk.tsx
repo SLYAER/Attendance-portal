@@ -2,8 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, getDoc, updateDoc, setDoc, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { format } from 'date-fns';
-import { ShieldAlert, User as UserIcon, LogIn } from 'lucide-react';
+import { ShieldAlert, User as UserIcon, LogIn, PackageSearch, ChevronRight, Search } from 'lucide-react';
 import Dashboard from './Dashboard';
+import ProductCatalogFlow from './ProductCatalogFlow';
+
+const BRANDS = [
+  'Sony',
+  'Samsung',
+  'LG',
+  'Panasonic',
+  'Apple',
+  'Dell',
+  'HP',
+  'Lenovo',
+  'Asus',
+  'Acer',
+  'Microsoft',
+  'Bose',
+  'Canon',
+  'Nikon'
+];
 
 interface KioskProps {
   onOpenAdmin: () => void;
@@ -21,6 +39,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
   const [loggedInUser, setLoggedInUser] = useState<any>(null);
   const [todayAttendance, setTodayAttendance] = useState<any>(null);
   const [dailyCode, setDailyCode] = useState<string | null>(null);
+  const [showCatalogFlow, setShowCatalogFlow] = useState<boolean>(false);
 
   useEffect(() => {
     fetchUsers();
@@ -113,7 +132,6 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
            return;
         }
 
-        // Auto clock-in
         const autoClockInNow = new Date();
         const autoClockInDateStr = format(autoClockInNow, 'yyyy-MM-dd');
         const isoStr = autoClockInNow.toISOString();
@@ -183,15 +201,23 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
             SELECT <span className="text-[#4ECDC4]">PROFILE</span>
           </h1>
         </div>
-        <button 
-          onClick={onOpenAdmin} 
-          className="text-[#A0AEC0] hover:text-[#2D3436] transition-colors p-2 rounded-full"
-        >
-          <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onOpenAdmin} 
+            className="text-[#A0AEC0] hover:text-[#2D3436] transition-colors p-2 rounded-full"
+          >
+            <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+        </div>
       </header>
       
-      <main className="flex-grow p-6 md:p-12 max-w-7xl mx-auto w-full overflow-y-auto">
+      {showCatalogFlow && (
+        <ProductCatalogFlow 
+          onClose={() => setShowCatalogFlow(false)} 
+        />
+      )}
+      
+      <main className="flex-grow p-6 md:p-12 max-w-7xl mx-auto w-full overflow-y-auto pb-32">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {users.map(user => (
             <button
@@ -220,6 +246,16 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
         </div>
       </main>
 
+      {/* Product Search Button */}
+      <div className="h-32 shrink-0 bg-white border-t-4 border-[#2D3436] px-6 flex items-center justify-center overflow-x-auto shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-30 relative absolute bottom-0 left-0 right-0">
+        <button
+           onClick={() => setShowCatalogFlow(true)}
+           className="px-12 py-5 rounded-[40px] font-black text-2xl tracking-widest uppercase transition-all duration-300 block bg-[#F9D423] text-[#2D3436] hover:-translate-y-2 shadow-[0_6px_0_0_#D4B200] hover:shadow-[0_8px_0_0_#D4B200] active:translate-y-[4px] active:shadow-none flex items-center gap-4"
+        >
+           <Search className="w-8 h-8" /> PRODUCT EXPLORER
+        </button>
+      </div>
+
       {/* PIN Modal */}
       {selectedUser && (
         <div id="pin-modal" className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-all">
@@ -246,7 +282,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
               <h2 className="text-2xl font-black text-[#2D3436]">{selectedUser.name}</h2>
               <p className="text-xs font-bold text-[#A0AEC0] uppercase tracking-wider mt-1">
                 {checkingAttendance ? "Checking status..." 
-                  : (!todayAttendance ? "Enter Daily Auth Code to Clock In" 
+                  : (!todayAttendance ? "Enter Daily Auth Code to Continue" 
                   : (selectedUser.password ? "Enter Password to Log In" : "Create Password to Log In"))
                 }
               </p>
@@ -276,7 +312,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
               {isVerifying ? 'VERIFYING...' : (
                 <>
                   <LogIn className="w-6 h-6" />
-                  {!todayAttendance ? "CLOCK IN" : "LOG IN"}
+                  LOG IN
                 </>
               )}
             </button>
