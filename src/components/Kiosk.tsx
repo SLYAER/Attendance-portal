@@ -112,7 +112,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
            setIsVerifying(false);
            return;
         }
-        if (pin !== currentDailyCode) {
+        if (String(pin).trim() !== String(currentDailyCode).trim()) {
            setPinError('Incorrect daily attendance code.');
            setIsVerifying(false);
            return;
@@ -148,7 +148,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
           setPin('');
         } else {
           // Verify existing password
-          if (selectedUser.password === pin) {
+          if (String(selectedUser.password).trim() === String(pin).trim()) {
             setLoggedInUser(selectedUser);
             setSelectedUser(null);
             setPin('');
@@ -266,7 +266,7 @@ export default function Kiosk({ onOpenAdmin, isAdmin }: KioskProps) {
                 type="password"
                 value={pin}
                 maxLength={4}
-                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onChange={e => setPin(e.target.value.trim().slice(0, 4))}
                 placeholder="••••"
                 className="w-full text-center text-4xl sm:text-5xl font-black tracking-[1em] text-[#2D3436] bg-[#FFFCF0] border-4 border-[#FFEAA7] rounded-3xl py-6 outline-none focus:border-[#F9D423] transition-colors placeholder:text-gray-300 pl-[1em]"
                 autoFocus
