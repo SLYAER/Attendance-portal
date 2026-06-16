@@ -68,6 +68,31 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [brands, setBrands] = useState<string[]>([]);
   const [newBrandName, setNewBrandName] = useState('');
 
+  // Sync brands with server
+  useEffect(() => {
+    fetch('/api/brands')
+      .then(res => res.json())
+      .then(data => {
+        if (data.brands) {
+          setBrands(data.brands);
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
+
+  const saveBrandsToServer = async (newBrands: string[]) => {
+    setBrands(newBrands);
+    try {
+      await fetch('/api/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brands: newBrands })
+      });
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -80,16 +105,6 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     fetchFailedAttempts();
     fetchDailyCodes();
     fetchExpenses();
-    
-    // Parse INITIAL_BRANDS from ProductCatalogFlow or just load from localstorage (sync)
-    const savedBrands = localStorage.getItem('catalogBrands');
-    if (savedBrands) {
-      try { setBrands(JSON.parse(savedBrands)); } catch(e){}
-    } else {
-      const initial = ['Sony', 'Samsung', 'LG', 'Panasonic', 'Apple', 'Dell', 'HP', 'Lenovo', 'Asus', 'Acer', 'Microsoft', 'Bose', 'Canon', 'Nikon'];
-      setBrands(initial);
-      localStorage.setItem('catalogBrands', JSON.stringify(initial));
-    }
   }, []);
 
   const handleAddBrand = (e: React.FormEvent) => {
@@ -97,16 +112,14 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     const trimmed = newBrandName.trim();
     if (!trimmed || brands.includes(trimmed)) return;
     const updated = [...brands, trimmed];
-    setBrands(updated);
-    localStorage.setItem('catalogBrands', JSON.stringify(updated));
+    saveBrandsToServer(updated);
     setNewBrandName('');
     showToast("Brand initialized!");
   };
   
   const handleRemoveBrand = (brandToRemove: string) => {
     const updated = brands.filter(b => b !== brandToRemove);
-    setBrands(updated);
-    localStorage.setItem('catalogBrands', JSON.stringify(updated));
+    saveBrandsToServer(updated);
     showToast("Brand terminated.");
   };
 
@@ -786,8 +799,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                     <button 
                       onClick={() => {
                         if(window.confirm('Are you sure you want to restore the default brands?')) {
-                          setBrands(SUGGESTED_BRANDS.slice(0, 14));
-                          localStorage.setItem('catalogBrands', JSON.stringify(SUGGESTED_BRANDS.slice(0, 14)));
+                          saveBrandsToServer(SUGGESTED_BRANDS.slice(0, 14));
                           showToast("Brands reset to defaults!");
                         }
                       }}
@@ -798,8 +810,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                     <button 
                       onClick={() => {
                         if(window.confirm('Are you sure you want to remove all registered brands?')) {
-                          setBrands([]);
-                          localStorage.setItem('catalogBrands', JSON.stringify([]));
+                          saveBrandsToServer([]);
                           showToast("All brands cleared!");
                         }
                       }}

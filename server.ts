@@ -11,6 +11,24 @@ async function startServer() {
 
   app.use(express.json());
 
+  let globalBrands = [
+    'Sony', 'Samsung', 'LG', 'Panasonic', 
+    'Apple', 'Dell', 'HP', 'Lenovo', 
+    'Asus', 'Acer', 'Microsoft', 'Bose', 
+    'Canon', 'Nikon'
+  ];
+
+  app.get("/api/brands", (req, res) => {
+    res.json({ brands: globalBrands });
+  });
+
+  app.post("/api/brands", (req, res) => {
+    if (req.body.brands && Array.isArray(req.body.brands)) {
+      globalBrands = req.body.brands;
+    }
+    res.json({ success: true });
+  });
+
   // API Route for product search
   app.post("/api/search-product", async (req, res) => {
     try {

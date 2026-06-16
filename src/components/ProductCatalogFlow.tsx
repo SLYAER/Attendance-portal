@@ -109,11 +109,22 @@ export default function ProductCatalogFlow({ onClose }: ProductCatalogFlowProps)
 
   // Custom Brands State
   const [brands, setBrands] = useState<string[]>(INITIAL_BRANDS);
+  
   useEffect(() => {
-    const savedBrands = localStorage.getItem('catalogBrands');
-    if (savedBrands) {
-      try { setBrands(JSON.parse(savedBrands)); } catch(e){}
-    }
+    const fetchBrands = () => {
+      fetch('/api/brands')
+        .then(res => res.json())
+        .then(data => {
+          if (data.brands) {
+            setBrands(data.brands);
+          }
+        })
+        .catch(err => console.error(err));
+    };
+
+    fetchBrands();
+    const interval = setInterval(fetchBrands, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
