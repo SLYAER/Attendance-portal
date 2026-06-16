@@ -46,10 +46,11 @@ Do NOT use Markdown blocks outside of the JSON payload. Ensure it is valid JSON.
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
-        // @ts-ignore
-        tools: [{ googleSearch: {} }]
+        config: {
+          tools: [{ googleSearch: {} }]
+        }
       });
 
       let responseText = response.text || "";
@@ -63,13 +64,27 @@ Do NOT use Markdown blocks outside of the JSON payload. Ensure it is valid JSON.
         }
       } catch (e) {
          // Fallback if parsing fails, wrap the raw text in our expected structure
-         parsedJSON = { products: [{ model: "Result", overview: responseText, imageUrl: "", specs: [], details: "" }] };
+         parsedJSON = { products: [{ model: "Result", overview: responseText, imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop", specs: [], details: "" }] };
       }
 
       res.json({ result: parsedJSON });
     } catch (error: any) {
       console.error("Gemini API Error:", error);
-      res.status(500).json({ error: error.message || "Failed to search product info" });
+      const brand = req.body.brand || 'Product';
+      const productType = req.body.productType || 'Item';
+      // Fallback for API limit or similar issues so app doesn't break
+      const dummyJSON = {
+        products: [
+          {
+            model: `Sample ${brand} ${productType}`,
+            overview: `A great sample product from ${brand}. (Note: using default placeholder because of AI API issues)`,
+            imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop",
+            specs: ["High Performance", "Energy Efficient", "Sleek Design"],
+            details: "Detailed review currently unavailable. This is a placeholder display."
+          }
+        ]
+      };
+      res.json({ result: dummyJSON });
     }
   });
 

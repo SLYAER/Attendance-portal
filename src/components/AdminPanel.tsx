@@ -778,9 +778,37 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
             
             {activeTab === 'brands' && (
               <div className="bg-white rounded-[40px] p-8 border-b-8 border-r-8 border-[#4ECDC4] shadow-lg animate-in slide-in-from-bottom-4 duration-500">
-                <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] mb-6 flex items-center gap-3">
-                  <LayoutDashboard className="w-6 h-6 text-[#4ECDC4]"/> Register Brands
-                </h2>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                  <h2 className="text-2xl font-black uppercase tracking-wider text-[#2D3436] flex items-center gap-3">
+                    <LayoutDashboard className="w-6 h-6 text-[#4ECDC4]"/> Register Brands
+                  </h2>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        if(window.confirm('Are you sure you want to restore the default brands?')) {
+                          setBrands(SUGGESTED_BRANDS.slice(0, 14));
+                          localStorage.setItem('catalogBrands', JSON.stringify(SUGGESTED_BRANDS.slice(0, 14)));
+                          showToast("Brands reset to defaults!");
+                        }
+                      }}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors"
+                    >
+                      Reset Defaults
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if(window.confirm('Are you sure you want to remove all registered brands?')) {
+                          setBrands([]);
+                          localStorage.setItem('catalogBrands', JSON.stringify([]));
+                          showToast("All brands cleared!");
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl font-bold transition-colors flex items-center gap-2"
+                    >
+                      <Trash2 className="w-5 h-5" /> Clear All Brands
+                    </button>
+                  </div>
+                </div>
                 
                 <form onSubmit={handleAddBrand} className="flex flex-col sm:flex-row gap-4 mb-10 w-full">
                   <div className="flex-1 relative">
@@ -833,7 +861,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                       <span className="font-black text-center text-[#2D3436] tracking-wider uppercase">{b}</span>
                       <button 
                         onClick={() => handleRemoveBrand(b)}
-                        className="absolute -top-3 -right-3 w-8 h-8 bg-[#FF6B6B] hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                        className="absolute -top-3 -right-3 w-8 h-8 bg-[#FF6B6B] hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-opacity shadow-md z-10"
                       >
                         <X className="w-4 h-4"/>
                       </button>

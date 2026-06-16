@@ -116,13 +116,6 @@ export default function ProductCatalogFlow({ onClose }: ProductCatalogFlowProps)
     }
   }, []);
 
-  const handleRemoveBrand = (brandToRemove: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = brands.filter(b => b !== brandToRemove);
-    setBrands(updated);
-    localStorage.setItem('catalogBrands', JSON.stringify(updated));
-  };
-
   useEffect(() => {
     const h = localStorage.getItem('catalogHistory');
     if (h) {
@@ -185,7 +178,13 @@ export default function ProductCatalogFlow({ onClose }: ProductCatalogFlowProps)
         })
       });
 
-      const data = await response.json();
+      const textData = await response.text();
+      let data;
+      try {
+        data = JSON.parse(textData);
+      } catch(e) {
+        throw new Error('Server returned invalid json. Try again.');
+      }
       
       if (!response.ok) {
         throw new Error(data.error || 'Failed to search product');
@@ -358,12 +357,6 @@ export default function ProductCatalogFlow({ onClose }: ProductCatalogFlowProps)
                              />
                           </div>
                           <span className="font-black text-lg md:text-xl text-[#2D3436] uppercase tracking-wider px-4 text-center line-clamp-2">{b}</span>
-                       </button>
-                       <button 
-                         onClick={(e) => handleRemoveBrand(b, e)}
-                         className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-[#FF6B6B] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600 z-10"
-                       >
-                         <X className="w-5 h-5"/>
                        </button>
                     </div>
                   )) : (
