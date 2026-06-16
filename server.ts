@@ -19,11 +19,8 @@ async function startServer() {
         return res.status(400).json({ error: "Brand and productType are required" });
       }
 
-      let prompt = `List current or popular products from the brand "${brand}" in the category "${productType}" using your existing knowledge.
-Please provide a catalog list of at least 3-5 different models.
-
-Return the response STRICTLY as a JSON object with this exact structure:
-\`\`\`json
+      let prompt = `List current or popular products from the brand "${brand}" in the category "${productType}" using your existing knowledge. Provide exactly 2-3 different models to keep it fast.
+Return a JSON object with this exact structure:
 {
   "products": [
     {
@@ -34,9 +31,7 @@ Return the response STRICTLY as a JSON object with this exact structure:
       "details": "Detailed description for the full view..."
     }
   ]
-}
-\`\`\`
-Do NOT use Markdown blocks outside of the JSON payload. Ensure it is valid JSON.`;
+}`;
 
       if (sortBy) {
         prompt += `\n\nSort the products by: ${sortBy}.`;
@@ -46,21 +41,19 @@ Do NOT use Markdown blocks outside of the JSON payload. Ensure it is valid JSON.
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.7
+        }
       });
 
-      let responseText = response.text || "";
+      let responseText = response.text || "{}";
       let parsedJSON;
       try {
-        const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || responseText.match(/```\n([\s\S]*?)\n```/);
-        if (jsonMatch && jsonMatch[1]) {
-           parsedJSON = JSON.parse(jsonMatch[1]);
-        } else {
-           parsedJSON = JSON.parse(responseText.replace(/```json/g, '').replace(/```/g, '').trim());
-        }
+         parsedJSON = JSON.parse(responseText);
       } catch (e) {
-         // Fallback if parsing fails, wrap the raw text in our expected structure
          parsedJSON = { products: [{ model: "Result", overview: responseText, imageUrl: "", specs: [], details: "" }] };
       }
 
