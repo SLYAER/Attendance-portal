@@ -11,9 +11,9 @@ interface AdminPanelProps {
 }
 
 const SUGGESTED_BRANDS = [
-  'Sony', 'Samsung', 'LG', 'Panasonic', 'Apple', 'Dell', 'HP', 'Lenovo', 'Asus', 'Acer', 'Microsoft', 'Bose', 'Canon', 'Nikon',
-  'Haier', 'Whirlpool', 'Bosch', 'Siemens', 'Electrolux', 'Dyson', 'Philips', 'Toshiba', 'Hitachi', 'Sharp', 'Vizio', 'Hisense', 'TCL',
-  'OnePlus', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'Motorola', 'Nokia', 'JBL', 'Sennheiser', 'Logitech', 'Razer', 'Corsair', 'Nintendo'
+  'Haier', 'Onida', 'LG', 'Daikin', 'Mitsubishi', 'Lloyd', 'Godrej', 'Hitachi', 'Amstrad', 'Panasonic',
+  'Sony', 'Samsung', 'Apple', 'Dell', 'HP', 'Lenovo', 'Asus', 'Acer', 'Microsoft', 'Bose', 'Canon', 'Nikon',
+  'Whirlpool', 'Bosch', 'Siemens', 'Electrolux', 'Dyson', 'Philips', 'Toshiba', 'Sharp', 'Vizio', 'Hisense', 'TCL'
 ];
 
 export default function AdminPanel({ onBack }: AdminPanelProps) {
@@ -75,7 +75,12 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         const docRef = doc(db, 'config', 'catalogBrands');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists() && docSnap.data().brands) {
-          setBrands(docSnap.data().brands);
+          const dbBrands = docSnap.data().brands;
+          if (dbBrands.length > 0 && dbBrands[0] === 'Sony' && !dbBrands.includes('Haier')) {
+            setBrands(SUGGESTED_BRANDS.slice(0, 10));
+          } else {
+            setBrands(dbBrands);
+          }
         }
       } catch (err) {
         console.error(err);
@@ -800,7 +805,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                     <button 
                       onClick={() => {
                         if(window.confirm('Are you sure you want to restore the default brands?')) {
-                          saveBrandsToServer(SUGGESTED_BRANDS.slice(0, 14));
+                          saveBrandsToServer(SUGGESTED_BRANDS.slice(0, 10));
                           showToast("Brands reset to defaults!");
                         }
                       }}

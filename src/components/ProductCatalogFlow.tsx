@@ -9,10 +9,8 @@ interface ProductCatalogFlowProps {
 }
 
 const INITIAL_BRANDS = [
-  'Sony', 'Samsung', 'LG', 'Panasonic', 
-  'Apple', 'Dell', 'HP', 'Lenovo', 
-  'Asus', 'Acer', 'Microsoft', 'Bose', 
-  'Canon', 'Nikon'
+  'Haier', 'Onida', 'LG', 'Daikin', 'Mitsubishi', 
+  'Lloyd', 'Godrej', 'Hitachi', 'Amstrad', 'Panasonic'
 ];
 
 const PRODUCT_TYPES = [
@@ -118,7 +116,13 @@ export default function ProductCatalogFlow({ onClose }: ProductCatalogFlowProps)
         const docRef = doc(db, 'config', 'catalogBrands');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists() && docSnap.data().brands) {
-          setBrands(docSnap.data().brands);
+          const dbBrands = docSnap.data().brands;
+          // Auto migrate if the old default 'Sony' is still the first item
+          if (dbBrands.length > 0 && dbBrands[0] === 'Sony' && !dbBrands.includes('Haier')) {
+            setBrands(INITIAL_BRANDS);
+          } else {
+            setBrands(dbBrands);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch brands from firestore:', err);

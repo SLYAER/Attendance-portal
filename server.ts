@@ -19,7 +19,7 @@ async function startServer() {
         return res.status(400).json({ error: "Brand and productType are required" });
       }
 
-      let prompt = `Search the web for current products from the brand "${brand}" in the category "${productType}".
+      let prompt = `List current or popular products from the brand "${brand}" in the category "${productType}" using your existing knowledge.
 Please provide a catalog list of at least 3-5 different models.
 
 Return the response STRICTLY as a JSON object with this exact structure:
@@ -29,7 +29,7 @@ Return the response STRICTLY as a JSON object with this exact structure:
     {
       "model": "Model Number or Name",
       "overview": "Brief overview...",
-      "imageUrl": "Direct, verifiable URL to a real image of the product. Use Search to find a valid image URL (e.g. from official sites or retailers, ending in .jpg or .png). DO NOT make up URLs. If you cannot find a valid image URL, return an empty string.",
+      "imageUrl": "",
       "specs": ["Spec 1", "Spec 2"],
       "details": "Detailed description for the full view..."
     }
@@ -47,10 +47,7 @@ Do NOT use Markdown blocks outside of the JSON payload. Ensure it is valid JSON.
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }]
-        }
+        contents: prompt
       });
 
       let responseText = response.text || "";
@@ -64,7 +61,15 @@ Do NOT use Markdown blocks outside of the JSON payload. Ensure it is valid JSON.
         }
       } catch (e) {
          // Fallback if parsing fails, wrap the raw text in our expected structure
-         parsedJSON = { products: [{ model: "Result", overview: responseText, imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop", specs: [], details: "" }] };
+         parsedJSON = { products: [{ model: "Result", overview: responseText, imageUrl: "", specs: [], details: "" }] };
+      }
+
+      // Add generated image placeholder if missing
+      if (parsedJSON && Array.isArray(parsedJSON.products)) {
+         parsedJSON.products = parsedJSON.products.map((p: any) => {
+            p.imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(brand + ' ' + p.model + ' ' + productType + ' product photography studio lighting')}?width=800&height=600&nologo=true`;
+            return p;
+         });
       }
 
       res.json({ result: parsedJSON });

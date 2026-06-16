@@ -58,8 +58,7 @@ service cloud.firestore {
     }
 
     match /config/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /mail/{mailId} {
