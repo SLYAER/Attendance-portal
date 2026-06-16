@@ -11,6 +11,8 @@ import Dashboard from './components/Dashboard';
 import AdminPanel from './components/AdminPanel';
 import DailyExpenses from './components/DailyExpenses';
 
+import { startAttendanceSweepInterval } from './lib/attendanceSweep';
+
 const ADMIN_NUMBERS = ['+919592838651', '+919888696542', '9592838651', '9888696542'];
 
 export default function App() {
@@ -36,6 +38,9 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Start background attendance sync
+    const sweepInterval = startAttendanceSweepInterval();
+
     // Lock browser history to prevent back button from exiting
     const lockHistory = () => {
       window.history.pushState(null, '', window.location.href);
@@ -199,6 +204,7 @@ export default function App() {
       window.removeEventListener('touchstart', startHold);
       window.removeEventListener('mouseup', cancelHold);
       window.removeEventListener('touchend', cancelHold);
+      clearInterval(sweepInterval);
     };
   }, []);
 

@@ -108,12 +108,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   };
 
   const handleGenerateCodes = async () => {
-    if (!confirmGenerate) {
-      setConfirmGenerate(true);
-      return;
-    }
     setGeneratingCodes(true);
-    setConfirmGenerate(false);
     try {
       const q = query(collection(db, 'users'));
       const snapshot = await getDocs(q);
@@ -923,10 +918,10 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   <button
                     onClick={handleGenerateCodes}
                     disabled={generatingCodes}
-                    className={`${confirmGenerate ? 'bg-[#FF6B6B] hover:bg-[#FF5252]' : 'bg-[#2D3436] hover:bg-[#1A202C]'} text-white font-black px-6 py-3 rounded-2xl shadow-md transition-colors disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base`}
+                    className="bg-[#2D3436] hover:bg-[#1A202C] text-white font-black px-6 py-3 rounded-2xl shadow-md transition-colors disabled:opacity-50 flex items-center gap-2 text-sm sm:text-base"
                   >
                     <KeyRound className="w-5 h-5" />
-                    {generatingCodes ? "Generating..." : confirmGenerate ? "Confirm?" : "Generate Missing Codes"}
+                    {generatingCodes ? "Generating..." : "Generate Missing Codes"}
                   </button>
                 </div>
               </div>
