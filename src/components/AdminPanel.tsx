@@ -199,7 +199,25 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       const q = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(500));
       const snapshot = await getDocs(q);
       const data: AttendanceRecord[] = [];
-      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      const seenKey = new Set<string>();
+      
+      for (const docSnap of snapshot.docs) {
+        const rec = docSnap.data() as AttendanceRecord;
+        const key = `${rec.userId}_${rec.date}`;
+        if (!seenKey.has(key)) {
+          seenKey.add(key);
+          data.push({ id: docSnap.id, ...rec });
+        } else {
+           // Duplicate found! Delete it since we are admin here.
+           // Prefer keeping the one we already pushed (which is newer since ordered desc)
+           try {
+             await deleteDoc(doc(db, 'attendance', docSnap.id));
+             console.log("Deleted duplicate attendance record:", docSnap.id);
+           } catch (e) {
+             console.error("Could not delete duplicate", e);
+           }
+        }
+      }
       setRecords(data);
     } catch (error) {
       console.error('Failed to fetch records', error);

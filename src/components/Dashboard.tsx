@@ -298,6 +298,19 @@ export default function Dashboard({ isAdmin, onOpenAdmin, localUser, onLogoutLoc
     const now = new Date();
     const dateStr = format(now, 'yyyy-MM-dd');
     const isoStr = now.toISOString();
+
+    // Check if already clocked in today to prevent duplicates
+    try {
+      const q = query(collection(db, 'attendance'), where('userId', '==', activeUserId), where('date', '==', dateStr));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        setSuccessMessage('You are already clocked in for today!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not check duplicate clock-in", e);
+    }
     
     // Generate an ID to construct a ref safely
     const newDocRef = doc(collection(db, 'attendance'));

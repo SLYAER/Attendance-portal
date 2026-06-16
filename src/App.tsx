@@ -183,6 +183,9 @@ export default function App() {
     window.addEventListener('touchstart', startHold);
     window.addEventListener('mouseup', cancelHold);
     window.addEventListener('touchend', cancelHold);
+    window.addEventListener('touchcancel', cancelHold);
+    window.addEventListener('touchmove', cancelHold);
+    window.addEventListener('mouseleave', cancelHold);
 
     return () => {
       unsubscribe();
@@ -191,6 +194,13 @@ export default function App() {
       clearTimeout(tapTimer);
       events.forEach(e => window.removeEventListener(e, handleInteraction));
       window.removeEventListener('click', handleTripleClick);
+      window.removeEventListener('mousedown', startHold);
+      window.removeEventListener('touchstart', startHold);
+      window.removeEventListener('mouseup', cancelHold);
+      window.removeEventListener('touchend', cancelHold);
+      window.removeEventListener('touchcancel', cancelHold);
+      window.removeEventListener('touchmove', cancelHold);
+      window.removeEventListener('mouseleave', cancelHold);
       clearInterval(clockOutInterval);
       clearTimeout(alarmTimer);
       if (audioRef.current) {
