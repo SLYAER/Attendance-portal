@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, PackageSearch, Box, Filter, Activity, ArrowLeft, Clock } from 'lucide-react';
 import Markdown from 'react-markdown';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface ProductCatalogFlowProps {
   onClose: () => void;
@@ -111,19 +113,20 @@ export default function ProductCatalogFlow({ onClose }: ProductCatalogFlowProps)
   const [brands, setBrands] = useState<string[]>(INITIAL_BRANDS);
   
   useEffect(() => {
-    const fetchBrands = () => {
-      fetch('/api/brands')
-        .then(res => res.json())
-        .then(data => {
-          if (data.brands) {
-            setBrands(data.brands);
-          }
-        })
-        .catch(err => console.error(err));
+    const fetchBrands = async () => {
+      try {
+        const docRef = doc(db, 'config', 'catalogBrands');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data().brands) {
+          setBrands(docSnap.data().brands);
+        }
+      } catch (err) {
+        console.error('Failed to fetch brands from firestore:', err);
+      }
     };
 
     fetchBrands();
-    const interval = setInterval(fetchBrands, 3000);
+    const interval = setInterval(fetchBrands, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -212,7 +215,11 @@ export default function ProductCatalogFlow({ onClose }: ProductCatalogFlowProps)
         timestamp: Date.now()
       });
     } catch (err: any) {
-      setError(err.message);
+      if (err.message === 'Failed to fetch') {
+        setError("Network connection issue. Please make sure you are connected to the internet and try again.");
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }

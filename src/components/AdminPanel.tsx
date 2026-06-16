@@ -68,26 +68,27 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [brands, setBrands] = useState<string[]>([]);
   const [newBrandName, setNewBrandName] = useState('');
 
-  // Sync brands with server
+  // Sync brands with Firestore
   useEffect(() => {
-    fetch('/api/brands')
-      .then(res => res.json())
-      .then(data => {
-        if (data.brands) {
-          setBrands(data.brands);
+    const fetchBrands = async () => {
+      try {
+        const docRef = doc(db, 'config', 'catalogBrands');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data().brands) {
+          setBrands(docSnap.data().brands);
         }
-      })
-      .catch(err => console.error(err));
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchBrands();
   }, []);
 
   const saveBrandsToServer = async (newBrands: string[]) => {
     setBrands(newBrands);
     try {
-      await fetch('/api/brands', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brands: newBrands })
-      });
+      const docRef = doc(db, 'config', 'catalogBrands');
+      await setDoc(docRef, { brands: newBrands }, { merge: true });
     } catch(e) {
       console.error(e);
     }
